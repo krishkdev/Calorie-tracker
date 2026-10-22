@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import DataSection from '../components/DataSection';
 import ProviderForm from '../components/ProviderForm';
 import { useProfile, useSettings } from '../db/hooks';
 import { clearAllData, updateProfile, updateSettings } from '../db/repo';
@@ -70,6 +71,10 @@ export default function Settings() {
       </Section>
 
       {profile && <GoalsSection units={settings.units} />}
+
+      <Section title="Your data">
+        <DataSection />
+      </Section>
 
       <Section title="About">
         <p className="text-sm text-gray-600 dark:text-gray-400">

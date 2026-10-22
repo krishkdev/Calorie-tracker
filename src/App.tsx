@@ -3,7 +3,10 @@ import TabBar from './components/TabBar';
 import { useProfile } from './db/hooks';
 import Home from './routes/Home';
 import Log from './routes/Log';
-import History from './routes/History';
+import { lazy, Suspense } from 'react';
+
+// Charts pull in Recharts; keep them out of the initial bundle.
+const History = lazy(() => import('./routes/History'));
 import Settings from './routes/Settings';
 import Onboarding from './routes/Onboarding';
 import ReviewEntry from './routes/ReviewEntry';
@@ -45,7 +48,14 @@ export default function App() {
             <Route path="/log/barcode" element={<LogBarcode />} />
             <Route path="/entry/new" element={<ReviewEntry />} />
             <Route path="/entry/:id" element={<ReviewEntry />} />
-            <Route path="/history" element={<History />} />
+            <Route
+              path="/history"
+              element={
+                <Suspense fallback={<p className="text-sm text-gray-500">Loading charts…</p>}>
+                  <History />
+                </Suspense>
+              }
+            />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/home" replace />} />
           </Route>

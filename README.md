@@ -1,28 +1,44 @@
 # Calorie Tracker
 
 A free, open-source calorie tracker in the spirit of Cal AI, with no subscription.
-You bring your own AI API key, and all of your data stays on your device.
+You bring your own AI key. Your data stays on your device.
 
-- **Bring your own AI.** Works with any OpenAI-compatible API: DeepSeek, OpenRouter, Google Gemini, OpenAI, Ollama, LM Studio, or a custom URL.
-- **Private by design.** Food logs, weight, and goals live in your browser's local database. There is no server and no account.
+- **Log food four ways.** Describe it in words, snap a photo, scan a barcode, or type the numbers. The AI returns items with calories and macros that you review and edit before saving.
+- **Bring your own AI.** Works with any OpenAI-compatible API: DeepSeek, OpenRouter (free vision models available), Google Gemini, OpenAI, Ollama, LM Studio, or a custom URL. Each option says clearly whether it can read photos.
+- **Goals that make sense.** A short onboarding computes your daily calorie and macro targets (Mifflin-St Jeor), which you can adjust any time.
+- **Private by design.** Food logs, weight and goals live in your browser's local database. There is no server and no account. Export a JSON backup whenever you like.
 - **Installable.** It is a Progressive Web App: add it to your phone's home screen and it works like a native app, including offline.
-- **Open source forever.** Licensed under the AGPL-3.0.
+- **Open source forever.** AGPL-3.0.
 
-> Status: under active development. See the milestones in `CONTRIBUTING.md`.
+## Try it
 
-## Quick start (development)
+Deploy your own copy in two minutes with GitHub Pages (see below), or run it locally:
 
 ```bash
 npm install
 npm run dev
 ```
 
-Then open the printed URL. To try it on your phone, run `npm run dev -- --host` and open your computer's LAN address.
+Then open the printed URL. To use it on your phone, run `npm run dev -- --host` and open your computer's LAN address.
 
-## Other commands
+## Set up your AI key
+
+1. Open **Settings → AI provider**.
+2. Pick a preset. The badge tells you whether that provider's models can read photos:
+   - **DeepSeek** – text only (great for typed logging, very cheap)
+   - **OpenRouter** – depends on the model; free vision models such as `google/gemma-4-31b-it:free`
+   - **Google Gemini** – text + photos, free tier available
+   - **OpenAI** – text + photos
+   - **Ollama / LM Studio** – free local models; photos with a vision model like `gemma3`
+3. Paste your key, pick a model, tap **Test connection**, then **Save**.
+
+Details, free-tier limits and local-model setup: [docs/PROVIDERS.md](docs/PROVIDERS.md).
+
+## Commands
 
 | Command             | What it does                        |
 | ------------------- | ----------------------------------- |
+| `npm run dev`       | Start the dev server                |
 | `npm run build`     | Type-check and build to `dist/`     |
 | `npm run preview`   | Serve the production build          |
 | `npm test`          | Run unit tests                      |
@@ -32,7 +48,21 @@ Then open the printed URL. To try it on your phone, run `npm run dev -- --host` 
 
 ## Deploying
 
-The repository ships with a GitHub Actions workflow that publishes to GitHub Pages from the `main` branch. Enable it once under **Settings → Pages → Source: GitHub Actions**. Any static host works too, and there is a `Dockerfile` for self-hosting. See `docs/SELF_HOSTING.md`.
+A GitHub Actions workflow publishes to GitHub Pages from the `main` branch. Enable it once under **Settings → Pages → Source: GitHub Actions**. Any static host works too, and there is a `Dockerfile` for self-hosting. See [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md).
+
+## How it works
+
+- `src/ai/` – the provider interface, presets, prompt, JSON parsing and the OpenAI-compatible adapter. Calls go straight from the browser to the provider.
+- `src/db/` – Dexie (IndexedDB) schema, repository helpers, live-query hooks and backup.
+- `src/nutrition/` – pure functions for BMR/TDEE, macro targets, totals and unit conversion.
+- `src/barcode/` – camera scanning (native BarcodeDetector with a ZXing fallback) and Open Food Facts lookup.
+- `src/routes/`, `src/components/` – the screens and UI pieces.
+
+Packaged-food data comes from [Open Food Facts](https://world.openfoodfacts.org) (ODbL). AI estimates are approximate; always review before saving.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Adding a provider preset is a one-file change.
 
 ## License
 

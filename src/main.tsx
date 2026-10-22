@@ -10,6 +10,10 @@ applyStoredTheme();
 // Service worker: auto-updates in the background; a reload picks up new versions.
 registerSW({ immediate: true });
 
+// Ask the browser not to evict our IndexedDB under storage pressure (iOS Safari
+// may otherwise wipe data from sites not used for a week). Best effort.
+void navigator.storage?.persist?.().catch(() => undefined);
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
