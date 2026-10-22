@@ -16,12 +16,14 @@
 
 :root {
   color-scheme: light;
+  --chart-tooltip-bg: #ffffff;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .dark {
   color-scheme: dark;
+  --chart-tooltip-bg: #111827;
 }
 
 html,
