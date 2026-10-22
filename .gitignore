@@ -1,0 +1,22 @@
+# dependencies
+node_modules
+
+# build output
+dist
+dev-dist
+coverage
+
+# logs
+*.log
+npm-debug.log*
+
+# editors / OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+
+# local env (never commit API keys)
+.env
+.env.*
+!.env.example
