@@ -7,6 +7,8 @@ on:
 
 jobs:
   check:
+    # The job name is the status check that branch protection requires.
+    name: CI
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

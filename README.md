@@ -48,7 +48,7 @@ Details, free-tier limits and local-model setup: [docs/PROVIDERS.md](docs/PROVID
 
 ## Deploying
 
-A GitHub Actions workflow publishes to GitHub Pages from the `main` branch. Enable it once under **Settings → Pages → Source: GitHub Actions**. Any static host works too, and there is a `Dockerfile` for self-hosting. See [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md).
+Production runs on Vercel through GitHub Actions: every pull request gets a preview deployment, and merging to `main` deploys to production. `main` is protected, so changes go through pull requests with passing CI and a successful preview. Setup steps are in [docs/CI_AND_DEPLOY.md](docs/CI_AND_DEPLOY.md). Any static host works too (an optional GitHub Pages workflow and a `Dockerfile` are included); see [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md).
 
 ## How it works
 

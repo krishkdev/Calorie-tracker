@@ -1,10 +1,9 @@
-# Deploys the app to GitHub Pages at https://<owner>.github.io/<repo>/
-# Enable it once in the repository: Settings -> Pages -> Source: "GitHub Actions".
+# Optional: deploys the app to GitHub Pages at https://<owner>.github.io/<repo>/
+# Production hosting is Vercel (see vercel.yml); run this manually if you want
+# a Pages copy too. Enable Pages once: Settings -> Pages -> Source: "GitHub Actions".
 name: Deploy to GitHub Pages
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
