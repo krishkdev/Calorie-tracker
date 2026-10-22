@@ -44,3 +44,11 @@ In the app: Ollama preset, base URL `http://192.168.x.x:11434/v1`.
 ## Updating
 
 Pull the latest changes and redeploy. The service worker updates in the background; users get the new version on their next launch.
+
+## Vercel
+
+1. Go to https://vercel.com/new and import the GitHub repository.
+2. Keep the defaults: Vercel detects Vite, runs `npm run build`, and serves `dist/`. The included `vercel.json` sets the cache headers for the service worker.
+3. Deploy. Every push to the production branch redeploys automatically.
+
+No environment variables are needed: users enter their own AI keys in the app.
