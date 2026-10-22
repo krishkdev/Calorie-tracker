@@ -9,6 +9,7 @@ import Onboarding from './routes/Onboarding';
 import ReviewEntry from './routes/ReviewEntry';
 import LogText from './routes/LogText';
 import LogPhoto from './routes/LogPhoto';
+import LogBarcode from './routes/LogBarcode';
 
 function Shell() {
   return (
@@ -41,6 +42,7 @@ export default function App() {
             <Route path="/log" element={<Log />} />
             <Route path="/log/text" element={<LogText />} />
             <Route path="/log/photo" element={<LogPhoto />} />
+            <Route path="/log/barcode" element={<LogBarcode />} />
             <Route path="/entry/new" element={<ReviewEntry />} />
             <Route path="/entry/:id" element={<ReviewEntry />} />
             <Route path="/history" element={<History />} />
