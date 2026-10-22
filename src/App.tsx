@@ -7,6 +7,8 @@ import History from './routes/History';
 import Settings from './routes/Settings';
 import Onboarding from './routes/Onboarding';
 import ReviewEntry from './routes/ReviewEntry';
+import LogText from './routes/LogText';
+import LogPhoto from './routes/LogPhoto';
 
 function Shell() {
   return (
@@ -37,6 +39,8 @@ export default function App() {
             <Route index element={<Navigate to="/home" replace />} />
             <Route path="/home" element={<Home />} />
             <Route path="/log" element={<Log />} />
+            <Route path="/log/text" element={<LogText />} />
+            <Route path="/log/photo" element={<LogPhoto />} />
             <Route path="/entry/new" element={<ReviewEntry />} />
             <Route path="/entry/:id" element={<ReviewEntry />} />
             <Route path="/history" element={<History />} />

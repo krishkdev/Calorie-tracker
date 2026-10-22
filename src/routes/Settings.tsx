@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ProviderForm from '../components/ProviderForm';
 import { useProfile, useSettings } from '../db/hooks';
 import { clearAllData, updateProfile, updateSettings } from '../db/repo';
 import type { Activity, GoalType, Macros, Profile, Sex, ThemeSetting, Units } from '../db/types';
@@ -37,6 +38,14 @@ export default function Settings() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Settings</h1>
+
+      <Section title="AI provider">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Bring your own key. The app talks to the provider directly from your browser; nothing
+          passes through any server of ours.
+        </p>
+        <ProviderForm />
+      </Section>
 
       <Section title="Appearance">
         <Segmented
