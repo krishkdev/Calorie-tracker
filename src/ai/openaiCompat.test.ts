@@ -159,6 +159,35 @@ describe('OpenAICompatibleProvider.analyze', () => {
     });
   });
 
+  it('retries once on 503 then succeeds, and reports overload if it persists', async () => {
+    vi.useFakeTimers();
+    try {
+      fetchMock.mockResolvedValueOnce(
+        new Response('[{"error":{"message":"overloaded"}}]', { status: 503 }),
+      );
+      fetchMock.mockResolvedValueOnce(reply(good));
+      const p = new OpenAICompatibleProvider(gemini);
+      const pending = p.analyze({ text: 'x', units: 'metric' });
+      await vi.advanceTimersByTimeAsync(2500);
+      const r = await pending;
+      expect(r.items).toHaveLength(1);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+
+      fetchMock.mockReset();
+      fetchMock.mockImplementation(() => Promise.resolve(new Response('{}', { status: 503 })));
+      const failing = p.analyze({ text: 'x', units: 'metric' });
+      const assertion = expect(failing).rejects.toMatchObject({
+        status: 503,
+        message: expect.stringContaining('overloaded'),
+      });
+      await vi.advanceTimersByTimeAsync(2500);
+      await assertion;
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('maps fetch failures to network_or_cors', async () => {
     fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
     await expect(

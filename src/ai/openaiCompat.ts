@@ -16,6 +16,9 @@ const ANALYZE_TIMEOUT_MS = 90_000;
 const TEST_TIMEOUT_MS = 20_000;
 /** Thinking models count their reasoning against this budget; keep it generous. */
 const MAX_TOKENS = 4096;
+/** Transient statuses worth one automatic retry. */
+const RETRY_STATUSES = new Set([429, 502, 503, 504]);
+const RETRY_DELAY_MS = 2000;
 
 type ContentPart =
   | { type: 'text'; text: string }
@@ -159,12 +162,23 @@ export class OpenAICompatibleProvider implements FoodAnalysisProvider {
     };
     if (this.config.jsonMode) body.response_format = { type: 'json_object' };
 
-    const res = await this.request(
+    // Overloaded (503) and rate-limited (429) replies are transient on free
+    // tiers; one short pause and retry fixes most of them without user action.
+    let res = await this.request(
       '/chat/completions',
       { method: 'POST', body: JSON.stringify(body) },
       signal,
       ANALYZE_TIMEOUT_MS,
     );
+    if (RETRY_STATUSES.has(res.status) && !signal?.aborted) {
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+      res = await this.request(
+        '/chat/completions',
+        { method: 'POST', body: JSON.stringify(body) },
+        signal,
+        ANALYZE_TIMEOUT_MS,
+      );
+    }
     const text = await res.text();
     if (!res.ok) throw httpError(res.status, text, this.config);
 
@@ -299,6 +313,14 @@ function httpError(status: number, body: string, config: ProviderConfig): AIErro
     return new AIError(
       'http',
       'This server rejects JSON mode. Turn off "JSON mode" under Advanced in Settings and try again.',
+      status,
+      detail,
+    );
+  }
+  if (status === 503 || status === 502 || status === 504) {
+    return new AIError(
+      'http',
+      `${name} is overloaded right now (${status}). It was retried once; wait a minute and try again, or switch to a lighter model such as gemini-3.5-flash-lite.${detail ? ` ${detail}` : ''}`,
       status,
       detail,
     );
