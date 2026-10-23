@@ -261,6 +261,20 @@ export class OpenAICompatibleProvider implements FoodAnalysisProvider {
         ANALYZE_TIMEOUT_MS,
       );
     }
+    // A 400 with the preset's extra options present usually means this model does
+    // not accept one of them (e.g. an unsupported thinking level). Retry once with
+    // the plain request so an option mismatch never blocks logging.
+    if (res.status === 400 && preset.extraBody && !signal?.aborted) {
+      const err = httpError(res.status, await res.text(), this.config);
+      if (err.code === 'unauthorized') throw err;
+      for (const key of Object.keys(preset.extraBody)) delete body[key];
+      res = await this.request(
+        '/chat/completions',
+        { method: 'POST', body: JSON.stringify(body) },
+        signal,
+        ANALYZE_TIMEOUT_MS,
+      );
+    }
     const text = await res.text();
     if (!res.ok) throw httpError(res.status, text, this.config);
 

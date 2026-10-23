@@ -31,9 +31,10 @@ export const PRESETS: Preset[] = [
     modelFilter: 'gemini',
     keyUrl: 'https://aistudio.google.com/apikey',
     docsUrl: 'https://ai.google.dev/gemini-api/docs/openai',
-    // Flash models "think" before answering. "minimal" is the lowest level Gemini 3.x
-    // accepts, and food estimates do not need more.
-    extraBody: { reasoning_effort: 'minimal' },
+    // Flash models "think" before answering. "low" is accepted by every Gemini 3.x
+    // model (gemini-3.8-flash rejects "minimal"), and food estimates do not need more.
+    // If a model still rejects it, chat() retries once without this field.
+    extraBody: { reasoning_effort: 'low' },
   },
   {
     id: 'openai',

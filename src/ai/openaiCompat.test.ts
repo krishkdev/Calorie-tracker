@@ -74,10 +74,61 @@ describe('OpenAICompatibleProvider.analyze', () => {
     const body = JSON.parse(init.body as string);
     expect(body.model).toBe('gemini-3.8-flash');
     expect(body.response_format).toEqual({ type: 'json_object' });
-    expect(body.reasoning_effort).toBe('minimal');
+    expect(body.reasoning_effort).toBe('low');
     expect(body.max_tokens).toBeGreaterThanOrEqual(2048);
     expect(body.messages[0].role).toBe('system');
     expect(body.messages[1].content).toContain('2 eggs');
+  });
+
+  it('retries without the preset extras when the model rejects them with 400', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify([
+          { error: { message: 'Thinking level LOW is not supported for this model.' } },
+        ]),
+        { status: 400, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    fetchMock.mockResolvedValueOnce(reply(good));
+    const r = await new OpenAICompatibleProvider(gemini).analyze({
+      text: '2 eggs',
+      units: 'metric',
+    });
+    expect(r.items[0].name).toBe('Egg');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const first = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
+    const second = JSON.parse((fetchMock.mock.calls[1] as [string, RequestInit])[1].body as string);
+    expect(first.reasoning_effort).toBe('low');
+    expect(second.reasoning_effort).toBeUndefined();
+    expect(second.response_format).toEqual({ type: 'json_object' });
+    expect(second.messages).toEqual(first.messages);
+  });
+
+  it('surfaces a 400 that persists without the extras', async () => {
+    fetchMock.mockImplementation(
+      async () =>
+        new Response(JSON.stringify([{ error: { message: 'Invalid request.' } }]), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+    );
+    await expect(
+      new OpenAICompatibleProvider(gemini).analyze({ text: '2 eggs', units: 'metric' }),
+    ).rejects.toMatchObject({ status: 400 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not retry a 400 for presets without extras', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: { message: 'Invalid request.' } }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    await expect(
+      new OpenAICompatibleProvider(openai).analyze({ text: '2 eggs', units: 'metric' }),
+    ).rejects.toMatchObject({ status: 400 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('omits json mode when disabled, skips reasoning for OpenAI, and sends image parts', async () => {
@@ -315,7 +366,7 @@ describe('OpenAICompatibleProvider.diagnose', () => {
     expect(bare.reasoning_effort).toBeUndefined();
     expect(bare.response_format).toBeUndefined();
     const full = JSON.parse((fetchMock.mock.calls[4] as [string, RequestInit])[1].body as string);
-    expect(full.reasoning_effort).toBe('minimal');
+    expect(full.reasoning_effort).toBe('low');
     expect(full.response_format).toEqual({ type: 'json_object' });
   });
 
