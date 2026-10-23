@@ -26,8 +26,8 @@ export default defineConfig({
         name: 'Calorie Tracker',
         short_name: 'Calories',
         description:
-          'Free, open-source calorie tracker. Bring your own AI API key. Your data never leaves your device.',
-        theme_color: '#16a34a',
+          'Free, open-source calorie tracker. Bring your own AI API key. Logs stay on your device. AI runs with your chosen provider.',
+        theme_color: '#1c1c1b',
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',

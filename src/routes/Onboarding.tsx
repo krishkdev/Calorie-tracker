@@ -1,3 +1,4 @@
+import Icon from '../components/Icon';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../db/hooks';
@@ -72,12 +73,20 @@ export default function Onboarding() {
   }
 
   return (
-    <div
-      className="mx-auto flex min-h-full w-full max-w-md flex-col px-4 py-6"
-      style={{ paddingTop: 'calc(var(--safe-top) + 1.5rem)' }}
-    >
-      <header className="mb-6">
-        <p className="text-sm font-medium text-brand-600">Step {step + 1} of 3</p>
+    <div className="onboarding-shell">
+      <div className="app-brand onboarding-brand">
+        <span className="brand-mark">
+          <Icon name="leaf" />
+        </span>
+        Calorie<span className="brand-period">.</span>
+      </div>
+      <div className="onboarding-progress" role="group" aria-label={`Step ${step + 1} of 3`}>
+        {[0, 1, 2].map((s) => (
+          <span key={s} className={s <= step ? 'is-done' : ''} />
+        ))}
+      </div>
+      <header className="mb-8">
+        <p className="eyebrow">LET’S MAKE THIS PERSONAL · {step + 1} / 3</p>
         <h1 className="mt-1 text-2xl font-bold">
           {step === 0 && 'About you'}
           {step === 1 && 'How active are you?'}
@@ -195,6 +204,10 @@ export default function Onboarding() {
         </div>
       )}
 
+      <p className="privacy-footnote mt-6">
+        <Icon name="shield" size={13} />
+        No account needed. Your profile stays on this device.
+      </p>
       <div className="mt-auto flex gap-2 pt-6">
         {step > 0 && (
           <button
@@ -244,7 +257,7 @@ export function Segmented<T extends string>({
     <div>
       <span className="label">{label}</span>
       <div
-        className="grid gap-1 rounded-xl bg-gray-200 p-1 dark:bg-gray-800"
+        className="segmented-control grid gap-1 rounded-2xl p-1"
         style={{ gridTemplateColumns: `repeat(${options.length}, 1fr)` }}
         role="radiogroup"
         aria-label={label}
@@ -256,9 +269,7 @@ export function Segmented<T extends string>({
             role="radio"
             aria-checked={value === o.value}
             className={`rounded-lg py-2 text-sm font-medium transition ${
-              value === o.value
-                ? 'bg-white shadow dark:bg-gray-900'
-                : 'text-gray-600 dark:text-gray-300'
+              value === o.value ? 'segmented-selected' : 'text-gray-600 dark:text-gray-300'
             }`}
             onClick={() => onChange(o.value)}
           >

@@ -1,5 +1,6 @@
-import { HashRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { HashRouter, Link, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import TabBar from './components/TabBar';
+import Icon from './components/Icon';
 import { useProfile } from './db/hooks';
 import Home from './routes/Home';
 import Log from './routes/Log';
@@ -16,8 +17,20 @@ import LogBarcode from './routes/LogBarcode';
 
 function Shell() {
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-md flex-col">
-      <main className="flex-1 px-4 pb-24" style={{ paddingTop: 'calc(var(--safe-top) + 0.75rem)' }}>
+    <div className="app-shell">
+      <main className="app-main">
+        <header className="app-header">
+          <Link to="/home" className="app-brand" aria-label="Calorie home">
+            <span className="brand-mark">
+              <Icon name="leaf" />
+            </span>
+            Calorie<span className="brand-period">.</span>
+          </Link>
+          <Link to="/settings" className="local-badge">
+            <Icon name="shield" size={14} />
+            <span>Stored on your device</span>
+          </Link>
+        </header>
         <Outlet />
       </main>
       <TabBar />

@@ -1,3 +1,4 @@
+import Icon from '../components/Icon';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DataSection from '../components/DataSection';
@@ -38,7 +39,20 @@ export default function Settings() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Settings</h1>
+      <header className="screen-heading">
+        <h1>Made for you.</h1>
+        <p>Your goals, your AI, your data. You’re in control.</p>
+      </header>
+      <div className="settings-privacy">
+        <Icon name="shield" size={24} />
+        <div>
+          <strong>Local by default.</strong>
+          <p>
+            Food logs, goals, and keys are saved in this browser. Choose a local AI model to keep
+            analysis local too.
+          </p>
+        </div>
+      </div>
 
       <Section title="AI provider">
         <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -78,8 +92,9 @@ export default function Settings() {
 
       <Section title="About">
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          Calorie Tracker is free and open source (AGPL-3.0). Your data never leaves this device.
-          Packaged food data comes from{' '}
+          Calorie Tracker is free and open source (AGPL-3.0). Your logs stay on this device. When
+          you use AI, descriptions and photos go to your chosen provider or configured proxy.
+          Barcode lookups send the barcode to{' '}
           <a
             className="text-brand-600 underline"
             href="https://world.openfoodfacts.org"
@@ -88,9 +103,9 @@ export default function Settings() {
           >
             Open Food Facts
           </a>{' '}
-          (ODbL).
+          (ODbL). Local models let you keep AI analysis on your own hardware.
         </p>
-        <p className="mt-2 text-xs text-gray-500">Version {__APP_VERSION__}</p>
+        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Version {__APP_VERSION__}</p>
       </Section>
 
       <Section title="Danger zone">
@@ -264,7 +279,7 @@ function GoalsForm({ units, profile }: { units: Units; profile: Profile }) {
             <label key={key} className="block">
               <span className="flex justify-between text-sm">
                 <span>{label}</span>
-                <span className="tabular-nums text-gray-500">
+                <span className="tabular-nums text-gray-600 dark:text-gray-400">
                   {pct[key]}% · {grams} g
                 </span>
               </span>
@@ -280,7 +295,7 @@ function GoalsForm({ units, profile }: { units: Units; profile: Profile }) {
           ))}
         </div>
         {dirtyTargets && (
-          <p className="mt-2 text-xs text-gray-500">
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
             Targets were edited by hand; profile changes won't change them until you tap Recompute.
           </p>
         )}

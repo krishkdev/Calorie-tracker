@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import Icon from '../components/Icon';
+import { useSettings } from '../db/hooks';
+import { getPreset } from '../ai/presets';
 import CalorieRing from '../components/CalorieRing';
 import DateNav from '../components/DateNav';
 import MacroBars from '../components/MacroBars';
@@ -12,39 +15,74 @@ import { sumMacros, ZERO_MACROS } from '../nutrition/totals';
 export default function Home() {
   const [dayKey, setDayKey] = useState(todayKey);
   const profile = useProfile();
+  const settings = useSettings();
+  const preset = getPreset(settings.provider.preset);
+  const configured = !preset.needsKey || Boolean(settings.provider.apiKey.trim());
   const entries = useDayEntries(dayKey) ?? [];
   const consumed = entries.length ? sumMacros(entries.map((e) => e.totals)) : ZERO_MACROS;
   const target = profile?.targets ?? ZERO_MACROS;
 
   return (
-    <div className="space-y-4">
+    <div className="home-screen">
       <DateNav dayKey={dayKey} onChange={setDayKey} />
-
-      <div className="card">
-        <CalorieRing consumed={consumed.kcal} target={target.kcal} />
-        <div className="mt-5">
+      <div className="dashboard-grid">
+        <section className="nutrition-panel" aria-label="Daily nutrition">
+          <div className="card energy-card">
+            <CalorieRing consumed={consumed.kcal} target={target.kcal} />
+          </div>
           <MacroBars consumed={consumed} target={target} />
-        </div>
-      </div>
-
-      {entries.length === 0 && (
-        <p className="px-1 text-center text-sm text-gray-500">
-          Nothing logged yet.{' '}
-          <Link to={`/log?day=${dayKey}`} className="font-medium text-brand-600">
-            Log your first meal
+          <Link to={configured ? `/log?day=${dayKey}` : '/settings'} className="quick-log-card">
+            <span className="quick-log-icon">
+              <Icon name={configured ? 'camera' : 'settings'} size={23} />
+            </span>
+            <span>
+              <strong>{configured ? 'A little less effort.' : 'Your AI. Your choice.'}</strong>
+              <small>
+                {configured
+                  ? settings.provider.supportsVision
+                    ? 'Snap a photo. Let your AI do the rest.'
+                    : 'Describe a meal. Let your AI do the rest.'
+                  : 'Connect your key or a local model to get started.'}
+              </small>
+            </span>
+            <Icon name="arrow" size={19} />
           </Link>
-          .
-        </p>
-      )}
-
-      {MEAL_ORDER.map((meal) => (
-        <MealSection
-          key={meal}
-          meal={meal}
-          dayKey={dayKey}
-          entries={entries.filter((e) => e.meal === meal)}
-        />
-      ))}
+          <p className="privacy-footnote">
+            <Icon name="shield" size={13} /> No account. No subscription. Always yours.
+          </p>
+        </section>
+        <section className="meals-panel" aria-labelledby="meals-title">
+          <div className="section-heading">
+            <h2 id="meals-title">Your meals</h2>
+            <span>
+              {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
+            </span>
+          </div>
+          {entries.length === 0 && (
+            <div className="empty-meals">
+              <span className="empty-illustration">
+                <Icon name="bowl" size={34} />
+              </span>
+              <h3>A fresh start.</h3>
+              <p>Your first meal is the start of a clearer picture.</p>
+              <Link to={`/log?day=${dayKey}`} className="btn btn-primary">
+                <Icon name="plus" size={18} />
+                Log your first meal
+              </Link>
+            </div>
+          )}
+          <div className="meal-list">
+            {MEAL_ORDER.map((meal) => (
+              <MealSection
+                key={meal}
+                meal={meal}
+                dayKey={dayKey}
+                entries={entries.filter((e) => e.meal === meal)}
+              />
+            ))}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

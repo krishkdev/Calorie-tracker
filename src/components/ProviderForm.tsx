@@ -143,8 +143,8 @@ function Form({
               {showKey ? 'Hide' : 'Show'}
             </button>
           </div>
-          <span className="mt-1 block text-xs text-gray-500">
-            Stored only in this browser and sent only to the provider above.
+          <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
+            Stored in this browser. Requests go to your provider or configured proxy.
           </span>
         </label>
       ) : null}
@@ -232,7 +232,7 @@ function Form({
               placeholder="https://my-proxy.example/v1"
               onChange={(e) => setCfg({ ...cfg, proxyUrl: e.target.value || undefined })}
             />
-            <span className="mt-1 block text-xs text-gray-500">
+            <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
               Only for providers that block browser requests. Requests go to the proxy with the real
               base URL in an X-Target-Base-Url header.
             </span>

@@ -1,44 +1,48 @@
 import type { Macros } from '../db/types';
+import Icon, { type IconName } from './Icon';
 
 interface Props {
   consumed: Macros;
   target: Macros;
 }
-
-const rows = [
-  { key: 'proteinG', label: 'Protein', color: 'bg-protein' },
-  { key: 'carbsG', label: 'Carbs', color: 'bg-carbs' },
-  { key: 'fatG', label: 'Fat', color: 'bg-fat' },
-] as const;
+const rows: { key: 'proteinG' | 'carbsG' | 'fatG'; label: string; icon: IconName; tone: string }[] =
+  [
+    { key: 'proteinG', label: 'Protein', icon: 'protein', tone: 'protein' },
+    { key: 'carbsG', label: 'Carbs', icon: 'carbs', tone: 'carbs' },
+    { key: 'fatG', label: 'Fats', icon: 'fat', tone: 'fat' },
+  ];
 
 export default function MacroBars({ consumed, target }: Props) {
   return (
-    <div className="grid grid-cols-3 gap-3">
-      {rows.map(({ key, label, color }) => {
+    <div className="macro-grid">
+      {rows.map(({ key, label, icon, tone }) => {
         const eaten = Math.round(consumed[key]);
         const goal = Math.round(target[key]);
-        const pct = goal > 0 ? Math.min(100, (eaten / goal) * 100) : 0;
+        const ratio = goal > 0 ? Math.min(1, eaten / goal) : 0;
         return (
-          <div key={key}>
-            <div className="flex items-baseline justify-between text-xs">
-              <span className="font-medium">{label}</span>
-              <span className="tabular-nums text-gray-500 dark:text-gray-400">
-                {eaten}/{goal} g
-              </span>
+          <div key={key} className={`macro-card macro-${tone}`}>
+            <div className="macro-icon">
+              <Icon name={icon} size={21} />
             </div>
+            <p className="macro-value">
+              {Math.max(0, goal - eaten)}
+              <span>g</span>
+            </p>
+            <p className="macro-label">{label} left</p>
             <div
-              className="mt-1 h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800"
+              className="macro-track"
               role="progressbar"
               aria-label={label}
               aria-valuemin={0}
-              aria-valuemax={goal}
+              aria-valuemax={Math.max(goal, eaten)}
               aria-valuenow={eaten}
+              aria-valuetext={`${eaten} of ${goal} grams eaten`}
             >
-              <div
-                className={`h-full rounded-full ${color} transition-[width] duration-500`}
-                style={{ width: `${pct}%` }}
-              />
+              <div style={{ width: `${ratio * 100}%` }} />
             </div>
+            <p className="macro-detail">
+              {eaten} / {goal} g
+            </p>
           </div>
         );
       })}

@@ -1,3 +1,4 @@
+import Icon, { type IconName } from './Icon';
 import { Link } from 'react-router-dom';
 import type { FoodEntry, MealType } from '../db/types';
 import { MEAL_LABELS } from '../lib/meals';
@@ -9,21 +10,39 @@ interface Props {
 }
 
 export default function MealSection({ meal, dayKey, entries }: Props) {
+  const icons: Record<MealType, IconName> = {
+    breakfast: 'sun',
+    lunch: 'bowl',
+    dinner: 'moon',
+    snack: 'heart',
+  };
   const kcal = Math.round(entries.reduce((s, e) => s + e.totals.kcal, 0));
   return (
-    <section className="card p-0" aria-labelledby={`meal-${meal}`}>
-      <header className="flex items-center justify-between px-4 py-3">
-        <h2 id={`meal-${meal}`} className="font-semibold">
-          {MEAL_LABELS[meal]}
-        </h2>
+    <section className="meal-section" aria-labelledby={`meal-${meal}`}>
+      <header className="meal-header">
+        <div className="flex items-center gap-3">
+          <span className={`meal-icon meal-icon-${meal}`}>
+            <Icon name={icons[meal]} size={20} />
+          </span>
+          <div>
+            <h3 id={`meal-${meal}`} className="font-semibold">
+              {MEAL_LABELS[meal]}
+            </h3>
+            <p className="meal-caption">
+              {entries.length
+                ? `${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}`
+                : 'Ready when you are'}
+            </p>
+          </div>
+        </div>
         <div className="flex items-center gap-3">
           {kcal > 0 && <span className="text-sm tabular-nums text-gray-500">{kcal} kcal</span>}
           <Link
             to={`/log?meal=${meal}&day=${dayKey}`}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-lg font-bold text-brand-700 dark:bg-brand-700/30 dark:text-brand-500"
+            className="meal-add"
             aria-label={`Add to ${MEAL_LABELS[meal]}`}
           >
-            +
+            <Icon name="plus" size={18} />
           </Link>
         </div>
       </header>
