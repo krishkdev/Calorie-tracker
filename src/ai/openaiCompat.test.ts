@@ -142,10 +142,18 @@ describe('OpenAICompatibleProvider.analyze', () => {
       status: 401,
     });
 
+    // 429 is retried once, so mock both attempts.
     fetchMock.mockResolvedValueOnce(new Response('{}', { status: 429 }));
-    await expect(p.analyze({ text: 'x', units: 'metric' })).rejects.toMatchObject({
-      code: 'rate_limited',
-    });
+    fetchMock.mockResolvedValueOnce(new Response('{}', { status: 429 }));
+    vi.useFakeTimers();
+    try {
+      const pending = p.analyze({ text: 'x', units: 'metric' });
+      const assertion = expect(pending).rejects.toMatchObject({ code: 'rate_limited' });
+      await vi.advanceTimersByTimeAsync(2500);
+      await assertion;
+    } finally {
+      vi.useRealTimers();
+    }
 
     fetchMock.mockResolvedValueOnce(
       new Response(
