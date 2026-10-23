@@ -1,5 +1,12 @@
 import type { MealType } from '../db/types';
 
+/**
+ * Locale for all date formatting. Reading it from the browser (instead of
+ * passing `undefined`) keeps output identical across machines in tests.
+ */
+export const LOCALE: string =
+  typeof navigator !== 'undefined' && navigator.language ? navigator.language : 'en-US';
+
 /** Local-time calendar day as 'YYYY-MM-DD'. Never use toISOString() here: that is UTC. */
 export function dayKey(d: Date = new Date()): string {
   const y = d.getFullYear();
@@ -37,7 +44,7 @@ export function formatDayKey(key: string, today: string = todayKey()): string {
   if (key === addDays(today, 1)) return 'Tomorrow';
   const d = parseDayKey(key);
   const sameYear = d.getFullYear() === parseDayKey(today).getFullYear();
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString(LOCALE, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -47,7 +54,7 @@ export function formatDayKey(key: string, today: string = todayKey()): string {
 
 export function formatShortDate(key: string): string {
   const d = parseDayKey(key);
-  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  return d.toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' });
 }
 
 export interface MealCutoffs {

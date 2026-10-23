@@ -1,5 +1,6 @@
 import { HashRouter, Link, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import TabBar from './components/TabBar';
+import ErrorBoundary from './components/ErrorBoundary';
 import Icon from './components/Icon';
 import { useProfile } from './db/hooks';
 import Home from './routes/Home';
@@ -49,31 +50,33 @@ function RequireProfile() {
 export default function App() {
   return (
     <HashRouter>
-      <Routes>
-        <Route path="/onboarding" element={<Onboarding />} />
-        <Route element={<RequireProfile />}>
-          <Route element={<Shell />}>
-            <Route index element={<Navigate to="/home" replace />} />
-            <Route path="/home" element={<Home />} />
-            <Route path="/log" element={<Log />} />
-            <Route path="/log/text" element={<LogText />} />
-            <Route path="/log/photo" element={<LogPhoto />} />
-            <Route path="/log/barcode" element={<LogBarcode />} />
-            <Route path="/entry/new" element={<ReviewEntry />} />
-            <Route path="/entry/:id" element={<ReviewEntry />} />
-            <Route
-              path="/history"
-              element={
-                <Suspense fallback={<p className="text-sm text-gray-500">Loading charts…</p>}>
-                  <History />
-                </Suspense>
-              }
-            />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<Navigate to="/home" replace />} />
+      <ErrorBoundary>
+        <Routes>
+          <Route path="/onboarding" element={<Onboarding />} />
+          <Route element={<RequireProfile />}>
+            <Route element={<Shell />}>
+              <Route index element={<Navigate to="/home" replace />} />
+              <Route path="/home" element={<Home />} />
+              <Route path="/log" element={<Log />} />
+              <Route path="/log/text" element={<LogText />} />
+              <Route path="/log/photo" element={<LogPhoto />} />
+              <Route path="/log/barcode" element={<LogBarcode />} />
+              <Route path="/entry/new" element={<ReviewEntry />} />
+              <Route path="/entry/:id" element={<ReviewEntry />} />
+              <Route
+                path="/history"
+                element={
+                  <Suspense fallback={<p className="text-sm text-gray-500">Loading charts…</p>}>
+                    <History />
+                  </Suspense>
+                }
+              />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="*" element={<Navigate to="/home" replace />} />
+            </Route>
           </Route>
-        </Route>
-      </Routes>
+        </Routes>
+      </ErrorBoundary>
     </HashRouter>
   );
 }

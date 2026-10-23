@@ -1,7 +1,8 @@
 import Icon, { type IconName } from '../components/Icon';
-import { getPreset } from '../ai/presets';
+import { getPreset, isProviderConfigured } from '../ai/presets';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useFavorites, useSettings } from '../db/hooks';
+import { useFavorites, useSettingsLoaded } from '../db/hooks';
+import { DEFAULT_SETTINGS } from '../db/defaults';
 import { addEntry, deleteFavorite, touchFavorite } from '../db/repo';
 import type { Favorite, MealType } from '../db/types';
 import { guessMeal, todayKey } from '../lib/dates';
@@ -9,14 +10,16 @@ import { entryTotals } from '../nutrition/totals';
 
 export default function Log() {
   const [params] = useSearchParams();
-  const settings = useSettings();
+  const loaded = useSettingsLoaded();
+  const settings = loaded ?? DEFAULT_SETTINGS;
   const navigate = useNavigate();
   const favorites = useFavorites(12) ?? [];
   const qs = params.toString();
   const suffix = qs ? `?${qs}` : '';
   const vision = settings.provider.supportsVision;
   const preset = getPreset(settings.provider.preset);
-  const configured = !preset.needsKey || Boolean(settings.provider.apiKey.trim());
+  // Assume configured until settings arrive so the setup copy never flashes.
+  const configured = loaded ? isProviderConfigured(settings.provider) : true;
   const canPhoto = vision && configured;
 
   async function logFavorite(fav: Favorite) {
@@ -56,11 +59,13 @@ export default function Log() {
         <p>
           {canPhoto
             ? 'Your AI estimates the calories and macros. You review every detail before saving.'
-            : 'Connect a vision model with your own key, or use a local model. No subscription needed.'}
+            : configured
+              ? `${settings.provider.model} (${preset.name}) can't read images. Pick a vision model in Settings, or describe your meal instead.`
+              : `Add your ${preset.name} key in Settings to start. Free tiers work. No subscription needed.`}
         </p>
         <Link to={canPhoto ? `/log/photo${suffix}` : '/settings'} className="btn">
           <Icon name={canPhoto ? 'camera' : 'settings'} size={18} />
-          {canPhoto ? 'Take a photo' : 'Set up photo logging'}
+          {canPhoto ? 'Take a photo' : configured ? 'Choose a vision model' : 'Add your API key'}
           <Icon name="arrow" size={16} />
         </Link>
       </section>

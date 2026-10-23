@@ -11,12 +11,17 @@ export function useProfile() {
   return useLiveQuery(async () => (await db.profile.get('me')) ?? null, []);
 }
 
-export function useSettings(): Settings {
-  const s = useLiveQuery(async () => {
+/** Stored settings, or undefined while the first read is in flight. */
+export function useSettingsLoaded(): Settings | undefined {
+  return useLiveQuery(async () => {
     const stored = await db.settings.get('app');
     return stored ? mergeSettings(stored) : DEFAULT_SETTINGS;
   }, []);
-  return s ?? DEFAULT_SETTINGS;
+}
+
+/** Settings with defaults while loading; use useSettingsLoaded to tell the two apart. */
+export function useSettings(): Settings {
+  return useSettingsLoaded() ?? DEFAULT_SETTINGS;
 }
 
 export function useDayEntries(dayKey: string): FoodEntry[] | undefined {

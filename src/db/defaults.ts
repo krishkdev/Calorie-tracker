@@ -1,13 +1,14 @@
 import { DEFAULT_MEAL_CUTOFFS } from '../lib/dates';
 import type { ProviderConfig, Settings } from './types';
 
+/** Gemini first: it has a free tier and reads photos. */
 export const DEFAULT_PROVIDER: ProviderConfig = {
   kind: 'openai-compatible',
-  preset: 'deepseek',
-  baseUrl: 'https://api.deepseek.com',
+  preset: 'gemini',
+  baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
   apiKey: '',
-  model: 'deepseek-chat',
-  supportsVision: false,
+  model: 'gemini-3.8-flash',
+  supportsVision: true,
   jsonMode: true,
 };
 

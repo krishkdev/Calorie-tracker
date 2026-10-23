@@ -1,4 +1,4 @@
-import { addDays, formatDayKey, todayKey } from '../lib/dates';
+import { addDays, formatDayKey, LOCALE, parseDayKey, todayKey } from '../lib/dates';
 import Icon from './Icon';
 
 interface Props {
@@ -8,7 +8,7 @@ interface Props {
 
 export default function DateNav({ dayKey, onChange }: Props) {
   const today = todayKey();
-  const date = new Date(`${dayKey}T12:00:00`);
+  const date = parseDayKey(dayKey);
   // Monday-start week, anchored to the selected date so every day remains reachable.
   const start = addDays(dayKey, -((date.getDay() + 6) % 7));
   return (
@@ -17,7 +17,7 @@ export default function DateNav({ dayKey, onChange }: Props) {
         <div>
           <h1>{formatDayKey(dayKey, today)}</h1>
           <label className="date-picker">
-            {date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
+            {date.toLocaleDateString(LOCALE, { month: 'long', day: 'numeric', year: 'numeric' })}
             <Icon name="chevron" size={12} />
             <input
               type="date"
@@ -56,14 +56,14 @@ export default function DateNav({ dayKey, onChange }: Props) {
       <div className="week-strip">
         {Array.from({ length: 7 }, (_, i) => {
           const key = addDays(start, i);
-          const d = new Date(`${key}T12:00:00`);
+          const d = parseDayKey(key);
           return (
             <button
               type="button"
               key={key}
               disabled={key > today}
               className={`week-day ${key === dayKey ? 'is-selected' : ''} ${key === today ? 'is-today' : ''}`}
-              aria-label={d.toLocaleDateString(undefined, {
+              aria-label={d.toLocaleDateString(LOCALE, {
                 weekday: 'long',
                 month: 'long',
                 day: 'numeric',
@@ -72,7 +72,7 @@ export default function DateNav({ dayKey, onChange }: Props) {
               aria-pressed={key === dayKey}
               onClick={() => onChange(key)}
             >
-              <span>{d.toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 1)}</span>
+              <span>{d.toLocaleDateString(LOCALE, { weekday: 'narrow' })}</span>
               <strong>{d.getDate()}</strong>
               <i />
             </button>

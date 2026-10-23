@@ -1,7 +1,7 @@
 import type { ProviderConfig } from '../db/types';
 import { buildUserMessage, JSON_RETRY_MESSAGE, SYSTEM_PROMPT } from './prompt';
 import { parseAnalysis } from './parse';
-import { getPreset } from './presets';
+import { getPreset, isProviderConfigured } from './presets';
 import {
   AIError,
   type AnalysisInput,
@@ -10,7 +10,15 @@ import {
   type FoodAnalysisProvider,
 } from './types';
 
-const TIMEOUT_MS = 60_000;
+/** Food analysis can involve a photo plus model "thinking"; give it room. */
+const ANALYZE_TIMEOUT_MS = 90_000;
+/** The connection test only lists models, so it should be quick. */
+const TEST_TIMEOUT_MS = 20_000;
+/** Thinking models count their reasoning against this budget; keep it generous. */
+const MAX_TOKENS = 4096;
+/** Transient statuses worth one automatic retry. */
+const RETRY_STATUSES = new Set([429, 502, 503, 504]);
+const RETRY_DELAY_MS = 2000;
 
 type ContentPart =
   | { type: 'text'; text: string }
@@ -24,13 +32,16 @@ interface ChatMessage {
 interface ChatResponse {
   model?: string;
   choices?: { message?: { content?: string | ContentPart[] | null } }[];
-  error?: { message?: string } | string;
+}
+
+interface ModelsResponse {
+  data?: { id?: string }[];
 }
 
 /**
- * Adapter for any server that speaks the OpenAI Chat Completions format:
- * DeepSeek, OpenRouter, Gemini (OpenAI endpoint), OpenAI, Ollama, LM Studio, ...
- * Runs entirely in the browser; the key never leaves the device except to the provider.
+ * Adapter for servers that speak the OpenAI Chat Completions format
+ * (Google Gemini's OpenAI endpoint and OpenAI itself). Runs entirely in the
+ * browser; the key never leaves the device except to the provider.
  */
 export class OpenAICompatibleProvider implements FoodAnalysisProvider {
   readonly kind = 'openai-compatible' as const;
@@ -87,84 +98,87 @@ export class OpenAICompatibleProvider implements FoodAnalysisProvider {
     }
   }
 
+  /**
+   * Verifies the key by listing models (no generation, so no waiting on a
+   * thinking model) and reports whether the chosen model is on the list.
+   */
   async testConnection(opts?: { signal?: AbortSignal }): Promise<ConnectionTest> {
+    const { model } = this.config;
     try {
-      const reply = await this.chat(
-        [{ role: 'user', content: 'Reply with exactly the word OK and nothing else.' }],
-        opts?.signal,
-        { maxTokens: 20, jsonMode: false },
-      );
+      this.assertConfigured();
+      const res = await this.request('/models', { method: 'GET' }, opts?.signal, TEST_TIMEOUT_MS);
+      const text = await res.text();
+      if (!res.ok) throw httpError(res.status, text, this.config);
+      const ids = parseModelIds(text);
+      if (ids.length === 0) {
+        // An empty or non-JSON model list (e.g. a proxy's HTML fallback) proves
+        // nothing, so fall back to a real, small generation.
+        const reply = await this.chat(
+          [{ role: 'user', content: 'Reply with exactly the word OK and nothing else.' }],
+          opts?.signal,
+        );
+        return {
+          ok: true,
+          model,
+          message: `Connected. ${model} replied: "${reply.trim().slice(0, 40)}"`,
+        };
+      }
+      if (ids.includes(model.trim())) {
+        return { ok: true, model, message: `Connected. Your key works and ${model} is available.` };
+      }
+      const preset = getPreset(this.config.preset);
+      const related = ids.filter((id) => id.includes(preset.modelFilter)).slice(0, 6);
       return {
-        ok: true,
-        model: this.config.model,
-        message: `Connected. The model replied: "${reply.trim().slice(0, 40)}"`,
+        ok: false,
+        model,
+        message: `Your key works, but "${model}" is not in its model list. Try one of: ${(related.length
+          ? related
+          : ids.slice(0, 6)
+        ).join(', ')}.`,
       };
     } catch (e) {
-      const err = toAIError(e);
-      return { ok: false, model: this.config.model, message: err.message };
+      return { ok: false, model, message: toAIError(e).message };
+    }
+  }
+
+  private assertConfigured(): void {
+    if (!this.config.model.trim())
+      throw new AIError('no_api_key', 'Enter a model name in Settings.');
+    if (!isProviderConfigured(this.config)) {
+      throw new AIError('no_api_key', 'Add your API key in Settings to use AI logging.');
     }
   }
 
   /** Performs one chat completion and returns the assistant text. */
-  private async chat(
-    messages: ChatMessage[],
-    signal?: AbortSignal,
-    overrides: { maxTokens?: number; jsonMode?: boolean } = {},
-  ): Promise<string> {
-    const { apiKey, model, preset } = this.config;
-    if (!model.trim()) throw new AIError('no_api_key', 'Enter a model name in Settings.');
-    if (getPreset(preset).needsKey && !apiKey.trim() && !this.config.proxyUrl) {
-      throw new AIError('no_api_key', 'Add your API key in Settings to use AI logging.');
-    }
-
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (apiKey.trim()) headers.Authorization = `Bearer ${apiKey.trim()}`;
-    if (preset === 'openrouter') {
-      headers['HTTP-Referer'] =
-        typeof location !== 'undefined' ? location.origin : 'https://github.com';
-      headers['X-Title'] = 'Calorie Tracker';
-    }
-    if (this.config.proxyUrl) headers['X-Target-Base-Url'] = trimSlash(this.config.baseUrl);
-
+  private async chat(messages: ChatMessage[], signal?: AbortSignal): Promise<string> {
+    this.assertConfigured();
+    const preset = getPreset(this.config.preset);
     const body: Record<string, unknown> = {
-      model,
+      model: this.config.model.trim(),
       messages,
       temperature: 0.2,
-      max_tokens: overrides.maxTokens ?? 1024,
+      max_tokens: MAX_TOKENS,
+      ...(preset.extraBody ?? {}),
     };
-    if (overrides.jsonMode ?? this.config.jsonMode) body.response_format = { type: 'json_object' };
+    if (this.config.jsonMode) body.response_format = { type: 'json_object' };
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-    const onAbort = () => controller.abort();
-    signal?.addEventListener('abort', onAbort);
-
-    let res: Response;
-    try {
-      res = await fetch(
-        `${trimSlash(this.config.proxyUrl || this.config.baseUrl)}/chat/completions`,
-        {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(body),
-          signal: controller.signal,
-        },
+    // Overloaded (503) and rate-limited (429) replies are transient on free
+    // tiers; one short pause and retry fixes most of them without user action.
+    let res = await this.request(
+      '/chat/completions',
+      { method: 'POST', body: JSON.stringify(body) },
+      signal,
+      ANALYZE_TIMEOUT_MS,
+    );
+    if (RETRY_STATUSES.has(res.status) && !signal?.aborted) {
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+      res = await this.request(
+        '/chat/completions',
+        { method: 'POST', body: JSON.stringify(body) },
+        signal,
+        ANALYZE_TIMEOUT_MS,
       );
-    } catch (e) {
-      if (signal?.aborted) throw new AIError('aborted', 'Cancelled.');
-      if (controller.signal.aborted)
-        throw new AIError('aborted', 'The request timed out. Try again.');
-      throw new AIError(
-        'network_or_cors',
-        networkHint(this.config),
-        undefined,
-        e instanceof Error ? e.message : String(e),
-      );
-    } finally {
-      clearTimeout(timer);
-      signal?.removeEventListener('abort', onAbort);
     }
-
     const text = await res.text();
     if (!res.ok) throw httpError(res.status, text, this.config);
 
@@ -183,14 +197,58 @@ export class OpenAICompatibleProvider implements FoodAnalysisProvider {
     const reply = Array.isArray(content)
       ? content.map((p) => (p.type === 'text' ? p.text : '')).join('')
       : (content ?? '');
-    if (!reply.trim())
+    if (!reply.trim()) {
       throw new AIError(
         'empty',
-        'The model returned an empty reply.',
+        'The model returned an empty reply. If this keeps happening, try a lighter model such as a Flash or mini variant.',
         res.status,
         text.slice(0, 300),
       );
+    }
     return reply;
+  }
+
+  /** fetch() with auth headers, proxy routing, a timeout, and friendly error mapping. */
+  private async request(
+    path: string,
+    init: { method: 'GET' | 'POST'; body?: string },
+    signal: AbortSignal | undefined,
+    timeoutMs: number,
+  ): Promise<Response> {
+    const { apiKey, baseUrl, proxyUrl } = this.config;
+    const headers: Record<string, string> = {};
+    if (init.body) headers['Content-Type'] = 'application/json';
+    if (apiKey.trim()) headers.Authorization = `Bearer ${apiKey.trim()}`;
+    if (proxyUrl?.trim()) headers['X-Target-Base-Url'] = trimSlash(baseUrl);
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const onAbort = () => controller.abort();
+    signal?.addEventListener('abort', onAbort);
+    try {
+      return await fetch(`${trimSlash(proxyUrl?.trim() || baseUrl)}${path}`, {
+        ...init,
+        headers,
+        signal: controller.signal,
+      });
+    } catch (e) {
+      if (signal?.aborted) throw new AIError('aborted', 'Cancelled.');
+      if (controller.signal.aborted) {
+        throw new AIError(
+          'aborted',
+          `No reply from ${getPreset(this.config.preset).name} after ${Math.round(timeoutMs / 1000)} seconds. Check your connection and try again; if it keeps happening, try a lighter model.`,
+        );
+      }
+      throw new AIError(
+        'network_or_cors',
+        'Network error. Check your connection and try again. If it persists, the provider may be blocking browser requests; a proxy URL under Advanced works around that.',
+        undefined,
+        e instanceof Error ? e.message : String(e),
+      );
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+    }
   }
 }
 
@@ -198,18 +256,39 @@ function trimSlash(url: string): string {
   return url.trim().replace(/\/+$/, '');
 }
 
-function httpError(status: number, body: string, config: ProviderConfig): AIError {
-  let detail = '';
+/** Gemini returns ids like "models/gemini-2.5-flash"; normalise to bare ids. */
+export function parseModelIds(body: string): string[] {
   try {
-    const j = JSON.parse(body) as ChatResponse;
-    detail = typeof j.error === 'string' ? j.error : (j.error?.message ?? '');
+    const j = JSON.parse(body) as ModelsResponse;
+    return (j.data ?? [])
+      .map((m) => (typeof m.id === 'string' ? m.id.replace(/^models\//, '') : ''))
+      .filter(Boolean);
   } catch {
-    detail = body.slice(0, 200);
+    return [];
   }
-  if (status === 401 || status === 403) {
+}
+
+/** Providers wrap errors differently: {error:{message}}, {error:"..."}, or [{error:{...}}]. */
+export function errorDetail(body: string): string {
+  try {
+    let j: unknown = JSON.parse(body);
+    if (Array.isArray(j)) j = j[0];
+    if (!j || typeof j !== 'object') return '';
+    const obj = j as { error?: { message?: string } | string; message?: string };
+    if (typeof obj.error === 'string') return obj.error;
+    return obj.error?.message ?? obj.message ?? '';
+  } catch {
+    return body.slice(0, 200);
+  }
+}
+
+function httpError(status: number, body: string, config: ProviderConfig): AIError {
+  const detail = errorDetail(body);
+  const name = getPreset(config.preset).name;
+  if (status === 401 || status === 403 || (status === 400 && /api key/i.test(detail))) {
     return new AIError(
       'unauthorized',
-      `The provider rejected the API key (${status}). Check the key in Settings.`,
+      `${name} rejected the API key (${status})${detail ? `: ${detail}` : ''}. Check the key in Settings.`,
       status,
       detail,
     );
@@ -217,7 +296,7 @@ function httpError(status: number, body: string, config: ProviderConfig): AIErro
   if (status === 429) {
     return new AIError(
       'rate_limited',
-      `Rate limited by ${config.preset} (429). Wait a moment and try again.${detail ? ` ${detail}` : ''}`,
+      `${name} rate limit hit (429). Wait a moment and try again.${detail ? ` ${detail}` : ''}`,
       status,
       detail,
     );
@@ -225,7 +304,7 @@ function httpError(status: number, body: string, config: ProviderConfig): AIErro
   if (status === 404) {
     return new AIError(
       'http',
-      `Not found (404). Check the base URL and that the model "${config.model}" exists.${detail ? ` ${detail}` : ''}`,
+      `Not found (404). Check that the model "${config.model}" exists; use Test connection to see the available models.${detail ? ` ${detail}` : ''}`,
       status,
       detail,
     );
@@ -233,30 +312,25 @@ function httpError(status: number, body: string, config: ProviderConfig): AIErro
   if (status === 400 && /response_format|json_object/i.test(detail)) {
     return new AIError(
       'http',
-      'This server rejects JSON mode. Turn off "JSON mode" in Settings and try again.',
+      'This server rejects JSON mode. Turn off "JSON mode" under Advanced in Settings and try again.',
+      status,
+      detail,
+    );
+  }
+  if (status === 503 || status === 502 || status === 504) {
+    return new AIError(
+      'http',
+      `${name} is overloaded right now (${status}). It was retried once; wait a minute and try again, or switch to a lighter model such as gemini-3.5-flash-lite.${detail ? ` ${detail}` : ''}`,
       status,
       detail,
     );
   }
   return new AIError(
     'http',
-    `The provider returned an error (${status}).${detail ? ` ${detail}` : ''}`,
+    `${name} returned an error (${status}).${detail ? ` ${detail}` : ''}`,
     status,
     detail,
   );
-}
-
-function networkHint(config: ProviderConfig): string {
-  switch (config.preset) {
-    case 'ollama':
-      return 'Could not reach Ollama. Make sure it is running and started with OLLAMA_ORIGINS set to this site, e.g. OLLAMA_ORIGINS="*" ollama serve. From an https site, Ollama must also be reachable over https or on localhost in Chrome.';
-    case 'lmstudio':
-      return 'Could not reach LM Studio. Start the local server and enable CORS in its server settings.';
-    case 'custom':
-      return 'Could not reach the server. Check the base URL, your connection, and that the server allows browser requests (CORS). You can set a proxy URL in Settings as a workaround.';
-    default:
-      return 'Network error. Check your connection; if it persists the provider may be blocking browser requests (CORS). You can set a proxy URL in Settings as a workaround.';
-  }
 }
 
 export function toAIError(e: unknown): AIError {

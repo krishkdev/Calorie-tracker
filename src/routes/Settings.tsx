@@ -48,8 +48,8 @@ export default function Settings() {
         <div>
           <strong>Local by default.</strong>
           <p>
-            Food logs, goals, and keys are saved in this browser. Choose a local AI model to keep
-            analysis local too.
+            Food logs, goals, and your key are saved in this browser. AI requests go straight from
+            your browser to Google or OpenAI with your own key.
           </p>
         </div>
       </div>
@@ -103,7 +103,7 @@ export default function Settings() {
           >
             Open Food Facts
           </a>{' '}
-          (ODbL). Local models let you keep AI analysis on your own hardware.
+          (ODbL).
         </p>
         <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Version {__APP_VERSION__}</p>
       </Section>

@@ -4,7 +4,7 @@ A Cal AI-inspired visual direction for the existing local-first tracker: charcoa
 
 The phone layout uses bottom navigation and a prominent logging action. Larger screens use a sidebar and a two-column daily overview. Onboarding, logging, photo capture, settings, charts, and install icons share the updated style. System, light, and dark themes remain available, along with keyboard focus indicators and reduced-motion support.
 
-Logs, goals, and API keys stay in the browser's existing IndexedDB database. AI requests go to the configured provider or proxy; choose a local model for local AI analysis. Barcode lookup continues to use Open Food Facts. No account, new backend, analytics, or remote font dependency is introduced.
+Logs, goals, and API keys stay in the browser's existing IndexedDB database. AI requests go to the configured provider (Google Gemini or OpenAI) with the user's own key. Barcode lookup continues to use Open Food Facts. No account, new backend, analytics, or remote font dependency is introduced.
 
 ## Desktop
 

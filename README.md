@@ -10,7 +10,7 @@ You bring your own AI key. Your data stays on your device.
 **Live app:** https://calorie-tracker-six-navy.vercel.app
 
 - **Log food four ways.** Describe it in words, snap a photo, scan a barcode, or type the numbers. The AI returns items with calories and macros that you review and edit before saving.
-- **Bring your own AI.** Works with any OpenAI-compatible API: DeepSeek, OpenRouter (free vision models available), Google Gemini, OpenAI, Ollama, LM Studio, or a custom URL. Each option says clearly whether it can read photos.
+- **Bring your own AI.** Use your own Google Gemini key (free tier available) or OpenAI key. Both read photos. Nothing is billed through the app.
 - **Goals that make sense.** A short onboarding computes your daily calorie and macro targets (Mifflin-St Jeor), which you can adjust any time.
 - **Private by design.** Food logs, weight and goals live in your browser's local database. There is no server and no account. Export a JSON backup whenever you like.
 - **Installable.** It is a Progressive Web App: add it to your phone's home screen and it works like a native app, including offline.
@@ -30,15 +30,12 @@ Then open the printed URL. To use it on your phone, run `npm run dev -- --host` 
 ## Set up your AI key
 
 1. Open **Settings → AI provider**.
-2. Pick a preset. The badge tells you whether that provider's models can read photos:
-   - **DeepSeek** – text only (great for typed logging, very cheap)
-   - **OpenRouter** – depends on the model; free vision models such as `google/gemma-4-31b-it:free`
-   - **Google Gemini** – text + photos, free tier available
-   - **OpenAI** – text + photos
-   - **Ollama / LM Studio** – free local models; photos with a vision model like `gemma3`
-3. Paste your key, pick a model, tap **Test connection**, then **Save**.
+2. Pick a provider:
+   - **Google Gemini** – free tier, reads photos. Get a key at https://aistudio.google.com/apikey
+   - **OpenAI** – pay as you go, reads photos. Get a key at https://platform.openai.com/api-keys
+3. Paste your key, tap **Test connection** (it checks the key and that the model exists), then **Save**.
 
-Details, free-tier limits and local-model setup: [docs/PROVIDERS.md](docs/PROVIDERS.md).
+Details and troubleshooting: [docs/PROVIDERS.md](docs/PROVIDERS.md).
 
 ## Commands
 

@@ -41,11 +41,11 @@ describe('backup', () => {
     await updateSettings({
       provider: {
         kind: 'openai-compatible',
-        preset: 'deepseek',
-        baseUrl: 'https://api.deepseek.com',
+        preset: 'openai',
+        baseUrl: 'https://api.openai.com/v1',
         apiKey: 'sk-secret',
-        model: 'deepseek-chat',
-        supportsVision: false,
+        model: 'gpt-6-luna',
+        supportsVision: true,
         jsonMode: true,
       },
     });
