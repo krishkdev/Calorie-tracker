@@ -11,7 +11,7 @@ import {
 } from './types';
 
 /** Food analysis can involve a photo plus model "thinking"; give it room. */
-const ANALYZE_TIMEOUT_MS = 90_000;
+const ANALYZE_TIMEOUT_MS = 45_000;
 /** The connection test only lists models, so it should be quick. */
 const TEST_TIMEOUT_MS = 20_000;
 /** Thinking models count their reasoning against this budget; keep it generous. */
@@ -236,7 +236,7 @@ export class OpenAICompatibleProvider implements FoodAnalysisProvider {
       if (controller.signal.aborted) {
         throw new AIError(
           'aborted',
-          `No reply from ${getPreset(this.config.preset).name} after ${Math.round(timeoutMs / 1000)} seconds. Check your connection and try again; if it keeps happening, try a lighter model.`,
+          `No reply from ${getPreset(this.config.preset).name} after ${Math.round(timeoutMs / 1000)} seconds. The model is probably overloaded. Try again, or switch to gemini-3.5-flash-lite in Settings for faster answers.`,
         );
       }
       throw new AIError(

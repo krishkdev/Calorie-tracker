@@ -74,7 +74,7 @@ describe('OpenAICompatibleProvider.analyze', () => {
     const body = JSON.parse(init.body as string);
     expect(body.model).toBe('gemini-3.8-flash');
     expect(body.response_format).toEqual({ type: 'json_object' });
-    expect(body.reasoning_effort).toBe('low');
+    expect(body.reasoning_effort).toBe('minimal');
     expect(body.max_tokens).toBeGreaterThanOrEqual(2048);
     expect(body.messages[0].role).toBe('system');
     expect(body.messages[1].content).toContain('2 eggs');

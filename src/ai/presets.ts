@@ -31,8 +31,9 @@ export const PRESETS: Preset[] = [
     modelFilter: 'gemini',
     keyUrl: 'https://aistudio.google.com/apikey',
     docsUrl: 'https://ai.google.dev/gemini-api/docs/openai',
-    // Flash models "think" before answering; a low setting keeps food estimates fast and cheap.
-    extraBody: { reasoning_effort: 'low' },
+    // Flash models "think" before answering. "minimal" is the lowest level Gemini 3.x
+    // accepts, and food estimates do not need more.
+    extraBody: { reasoning_effort: 'minimal' },
   },
   {
     id: 'openai',
