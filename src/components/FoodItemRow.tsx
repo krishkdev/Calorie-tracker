@@ -37,7 +37,7 @@ export default function FoodItemRow({ item, onChange, onRemove }: Props) {
         </div>
         <button
           type="button"
-          className="mt-1 h-8 w-8 flex-none rounded-full text-gray-400 hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-800"
+          className="-mr-2 flex h-11 w-11 flex-none items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-800"
           aria-label={`Remove ${item.name || 'item'}`}
           onClick={onRemove}
         >
@@ -49,7 +49,7 @@ export default function FoodItemRow({ item, onChange, onRemove }: Props) {
         <div className="flex items-center gap-1" role="group" aria-label="Quantity">
           <button
             type="button"
-            className="btn btn-secondary h-9 min-h-0 w-9 px-0"
+            className="btn btn-secondary h-11 min-h-0 w-11 px-0"
             aria-label="Decrease quantity"
             onClick={() =>
               set('quantity', Math.max(0.25, round(item.quantity - step(item.quantity))))
@@ -69,7 +69,7 @@ export default function FoodItemRow({ item, onChange, onRemove }: Props) {
           />
           <button
             type="button"
-            className="btn btn-secondary h-9 min-h-0 w-9 px-0"
+            className="btn btn-secondary h-11 min-h-0 w-11 px-0"
             aria-label="Increase quantity"
             onClick={() => set('quantity', round(item.quantity + step(item.quantity)))}
           >

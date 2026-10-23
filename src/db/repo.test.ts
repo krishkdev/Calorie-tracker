@@ -67,3 +67,16 @@ describe('settings', () => {
     expect(next.provider.model).toBe('gemini-3.8-flash');
   });
 });
+
+describe('normalizeItem clamping', () => {
+  it('never stores negative quantities or macros', async () => {
+    const e = await addEntry({
+      dayKey: '2026-01-07',
+      meal: 'snack',
+      items: [{ ...egg, quantity: -2, kcal: -50 }],
+    });
+    expect(e.items[0].quantity).toBe(0);
+    expect(e.items[0].kcal).toBe(0);
+    expect(e.totals.kcal).toBe(0);
+  });
+});

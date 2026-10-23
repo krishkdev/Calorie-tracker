@@ -9,8 +9,8 @@ import {
   useWeights,
 } from '../db/hooks';
 import { deleteWeight, updateProfile, upsertWeight } from '../db/repo';
-import { todayKey } from '../lib/dates';
-import { formatDayKey } from '../lib/dates';
+import { formatDayKey, safeDayKey, todayKey } from '../lib/dates';
+import { computeTargets } from '../nutrition/tdee';
 import { displayWeight, formatWeight, parseWeightInput, weightUnitLabel } from '../nutrition/units';
 
 type Range = 7 | 30 | 90;
@@ -37,12 +37,15 @@ export default function History() {
       await upsertWeight(dayKey, kg);
       setWeightInput('');
       if (profile && dayKey === todayKey() && Math.abs(profile.weightKg - kg) >= 0.1) {
-        if (
-          confirm(
-            `Update your profile weight to ${formatWeight(kg, settings.units)} so targets stay accurate?`,
-          )
-        ) {
-          await updateProfile({ weightKg: kg });
+        const recompute = !profile.targetsOverridden;
+        const question = recompute
+          ? `Update your profile weight to ${formatWeight(kg, settings.units)} and recompute your daily targets?`
+          : `Update your profile weight to ${formatWeight(kg, settings.units)}? (Your hand-edited targets stay as they are.)`;
+        if (confirm(question)) {
+          const next = { ...profile, weightKg: kg };
+          await updateProfile(
+            recompute ? { weightKg: kg, targets: computeTargets(next).targets } : { weightKg: kg },
+          );
         }
       }
     } finally {
@@ -120,7 +123,7 @@ export default function History() {
             value={dayKey}
             max={todayKey()}
             aria-label="Date"
-            onChange={(e) => e.target.value && setDayKey(e.target.value)}
+            onChange={(e) => e.target.value && setDayKey(safeDayKey(e.target.value))}
           />
           <button type="submit" className="btn btn-primary px-4" disabled={!weightInput || saving}>
             Log
@@ -140,7 +143,7 @@ export default function History() {
                   </span>
                   <button
                     type="button"
-                    className="text-xs text-red-600"
+                    className="-mr-2 min-h-11 px-2 text-xs text-red-600"
                     onClick={() => void deleteWeight(w.id)}
                     aria-label={`Delete weight for ${w.dayKey}`}
                   >

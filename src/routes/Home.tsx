@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import Icon from '../components/Icon';
 import { isProviderConfigured } from '../ai/presets';
 import CalorieRing from '../components/CalorieRing';
@@ -9,11 +8,15 @@ import MealSection from '../components/MealSection';
 import { MEAL_ORDER } from '../lib/meals';
 import { useDayEntries, useProfile, useSettingsLoaded } from '../db/hooks';
 import { DEFAULT_SETTINGS } from '../db/defaults';
-import { todayKey } from '../lib/dates';
+import { safeDayKey, todayKey } from '../lib/dates';
 import { sumMacros, ZERO_MACROS } from '../nutrition/totals';
 
 export default function Home() {
-  const [dayKey, setDayKey] = useState(todayKey);
+  // The day survives round trips through the logging screens via ?day=.
+  const [params, setParams] = useSearchParams();
+  const dayKey = safeDayKey(params.get('day'));
+  const setDayKey = (key: string) =>
+    setParams(key === todayKey() ? {} : { day: safeDayKey(key) }, { replace: true });
   const profile = useProfile();
   const loaded = useSettingsLoaded();
   const settings = loaded ?? DEFAULT_SETTINGS;

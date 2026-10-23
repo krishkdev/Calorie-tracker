@@ -1,3 +1,4 @@
+import { useEffect, useMemo } from 'react';
 import Icon, { type IconName } from './Icon';
 import { Link } from 'react-router-dom';
 import type { FoodEntry, MealType } from '../db/types';
@@ -87,13 +88,8 @@ function trim(n: number): string {
 }
 
 function Thumb({ blob }: { blob: Blob }) {
-  const url = URL.createObjectURL(blob);
-  return (
-    <img
-      src={url}
-      alt=""
-      className="h-10 w-10 flex-none rounded-lg object-cover"
-      onLoad={() => URL.revokeObjectURL(url)}
-    />
-  );
+  // One object URL per blob, released when the blob changes or the row unmounts.
+  const url = useMemo(() => URL.createObjectURL(blob), [blob]);
+  useEffect(() => () => URL.revokeObjectURL(url), [url]);
+  return <img src={url} alt="" className="h-10 w-10 flex-none rounded-lg object-cover" />;
 }

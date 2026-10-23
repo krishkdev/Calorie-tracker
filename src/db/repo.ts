@@ -147,14 +147,14 @@ export function entriesBetween(fromKey: string, toKey: string): Promise<FoodEntr
 
 export function normalizeItem(item: Partial<FoodItem> & { name: string }): FoodItem {
   return {
-    id: item.id ?? newId(),
-    name: item.name.trim(),
+    id: typeof item.id === 'string' && item.id ? item.id : newId(),
+    name: String(item.name ?? '').trim(),
     portion: (item.portion ?? '').trim(),
-    quantity: finite(item.quantity, 1),
-    kcal: finite(item.kcal, 0),
-    proteinG: finite(item.proteinG, 0),
-    carbsG: finite(item.carbsG, 0),
-    fatG: finite(item.fatG, 0),
+    quantity: Math.max(0, finite(item.quantity, 1)),
+    kcal: Math.max(0, finite(item.kcal, 0)),
+    proteinG: Math.max(0, finite(item.proteinG, 0)),
+    carbsG: Math.max(0, finite(item.carbsG, 0)),
+    fatG: Math.max(0, finite(item.fatG, 0)),
     confidence: item.confidence,
     source: item.source ?? 'manual',
     barcode: item.barcode,

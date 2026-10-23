@@ -4,6 +4,7 @@ import { fetchProduct, ProductNotFoundError } from '../barcode/openFoodFacts';
 import BarcodeScanner from '../components/BarcodeScanner';
 import ServingPicker from '../components/ServingPicker';
 import type { FoodItem, MealType, ProductInfo } from '../db/types';
+import { safeDayKey } from '../lib/dates';
 import type { ReviewState } from './ReviewEntry';
 
 export default function LogBarcode() {
@@ -45,7 +46,7 @@ export default function LogBarcode() {
     const state: ReviewState = {
       items: [item],
       meal: (params.get('meal') as MealType | null) ?? undefined,
-      dayKey: params.get('day') ?? undefined,
+      dayKey: params.get('day') ? safeDayKey(params.get('day')) : undefined,
     };
     navigate('/entry/new', { state });
   }
