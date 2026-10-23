@@ -24,16 +24,24 @@ export const PRESETS: Preset[] = [
     id: 'gemini',
     name: 'Google Gemini',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-    defaultModel: 'gemini-3.8-flash',
+    defaultModel: 'gemini-3.5-flash-lite',
     badge: 'Text + photos',
     note: 'Free tier available. Gemini Flash models read photos. Get a key from Google AI Studio in a minute.',
-    suggestedModels: ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-flash-latest'],
+    // Measured with a free-tier key: flash-lite answers text and photos in about a
+    // second; gemini-3.8-flash is often "overloaded" (503) or silent for 45s+.
+    suggestedModels: [
+      'gemini-3.5-flash-lite',
+      'gemini-3.6-flash',
+      'gemini-3.8-flash',
+      'gemini-flash-lite-latest',
+    ],
     modelFilter: 'gemini',
     keyUrl: 'https://aistudio.google.com/apikey',
     docsUrl: 'https://ai.google.dev/gemini-api/docs/openai',
-    // Flash models "think" before answering. "minimal" is the lowest level Gemini 3.x
-    // accepts, and food estimates do not need more.
-    extraBody: { reasoning_effort: 'minimal' },
+    // Flash models "think" before answering. "low" is accepted by every Gemini 3.x
+    // model (gemini-3.8-flash rejects "minimal"), and food estimates do not need more.
+    // If a model still rejects it, chat() retries once without this field.
+    extraBody: { reasoning_effort: 'low' },
   },
   {
     id: 'openai',

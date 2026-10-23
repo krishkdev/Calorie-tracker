@@ -64,7 +64,7 @@ describe('settings', () => {
     await updateSettings({ units: 'imperial' });
     const next = await getSettings();
     expect(next.units).toBe('imperial');
-    expect(next.provider.model).toBe('gemini-3.8-flash');
+    expect(next.provider.model).toBe('gemini-3.5-flash-lite');
   });
 });
 
