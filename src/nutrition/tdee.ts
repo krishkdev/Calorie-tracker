@@ -125,3 +125,15 @@ export function percentsFromMacros(m: Macros): MacroPercents {
   const fat = Math.round((m.fatG * 9 * 100) / total);
   return { protein, fat, carbs: 100 - protein - fat };
 }
+
+/** Ranges the metabolism formula is meaningful for; also blocks 0/empty fields. */
+export function isPlausibleBody(b: { age: number; heightCm: number; weightKg: number }): boolean {
+  return (
+    b.age >= 10 &&
+    b.age <= 120 &&
+    b.heightCm >= 100 &&
+    b.heightCm <= 250 &&
+    b.weightKg >= 25 &&
+    b.weightKg <= 400
+  );
+}

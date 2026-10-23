@@ -1,11 +1,13 @@
 import { HashRouter, Link, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import TabBar from './components/TabBar';
 import ErrorBoundary from './components/ErrorBoundary';
+import UpdatePrompt from './components/UpdatePrompt';
 import Icon from './components/Icon';
-import { useProfile } from './db/hooks';
+import { useProfile, useSettingsLoaded } from './db/hooks';
+import { applyTheme } from './lib/theme';
 import Home from './routes/Home';
 import Log from './routes/Log';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 
 // Charts pull in Recharts; keep them out of the initial bundle.
 const History = lazy(() => import('./routes/History'));
@@ -17,6 +19,12 @@ import LogPhoto from './routes/LogPhoto';
 import LogBarcode from './routes/LogBarcode';
 
 function Shell() {
+  // Stored settings win over the boot-time localStorage hint (imports, resets).
+  const settings = useSettingsLoaded();
+  const theme = settings?.theme;
+  useEffect(() => {
+    if (theme) applyTheme(theme);
+  }, [theme]);
   return (
     <div className="app-shell">
       <main className="app-main">
@@ -77,6 +85,7 @@ export default function App() {
           </Route>
         </Routes>
       </ErrorBoundary>
+      <UpdatePrompt />
     </HashRouter>
   );
 }

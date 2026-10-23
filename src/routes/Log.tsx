@@ -1,11 +1,13 @@
 import Icon, { type IconName } from '../components/Icon';
 import { getPreset, isProviderConfigured } from '../ai/presets';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useRef, useState } from 'react';
 import { useFavorites, useSettingsLoaded } from '../db/hooks';
 import { DEFAULT_SETTINGS } from '../db/defaults';
 import { addEntry, deleteFavorite, touchFavorite } from '../db/repo';
-import type { Favorite, MealType } from '../db/types';
+import type { Favorite } from '../db/types';
 import { guessMeal, safeDayKey } from '../lib/dates';
+import { mealFromParam } from '../lib/meals';
 import { entryTotals } from '../nutrition/totals';
 
 export default function Log() {
@@ -22,14 +24,27 @@ export default function Log() {
   const configured = loaded ? isProviderConfigured(settings.provider) : true;
   const canPhoto = vision && configured;
 
+  const [logging, setLogging] = useState<string | null>(null);
+  // State updates are batched, so taps in the same tick all see logging === null;
+  // the ref is set synchronously and is what actually blocks the duplicate.
+  const inFlight = useRef(false);
+
   async function logFavorite(fav: Favorite) {
-    await addEntry({
-      dayKey: safeDayKey(params.get('day')),
-      meal: (params.get('meal') as MealType | null) ?? guessMeal(new Date(), settings.mealCutoffs),
-      items: fav.items.map((i) => ({ ...i, source: 'favorite' as const })),
-    });
-    await touchFavorite(fav.id);
-    navigate(`/home?day=${safeDayKey(params.get('day'))}`);
+    if (inFlight.current) return; // a second tap must not log the meal twice
+    inFlight.current = true;
+    setLogging(fav.id);
+    try {
+      await addEntry({
+        dayKey: safeDayKey(params.get('day')),
+        meal: mealFromParam(params.get('meal')) ?? guessMeal(new Date(), settings.mealCutoffs),
+        items: fav.items.map((i) => ({ ...i, source: 'favorite' as const })),
+      });
+      await touchFavorite(fav.id);
+      navigate(`/home?day=${safeDayKey(params.get('day'))}`);
+    } finally {
+      inFlight.current = false;
+      setLogging(null);
+    }
   }
 
   async function removeFavorite(fav: Favorite) {
@@ -114,9 +129,10 @@ export default function Log() {
                   <button
                     type="button"
                     className="btn btn-primary min-h-9 px-3 py-1 text-sm"
+                    disabled={logging !== null}
                     onClick={() => void logFavorite(fav)}
                   >
-                    Log
+                    {logging === fav.id ? 'Logging…' : 'Log'}
                   </button>
                   <button
                     type="button"

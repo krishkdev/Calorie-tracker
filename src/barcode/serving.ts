@@ -1,4 +1,4 @@
-import type { FoodItem, ProductInfo } from '../db/types';
+import type { FoodItem, Macros, ProductInfo } from '../db/types';
 import { scaleMacros } from '../nutrition/totals';
 
 export type ServingMode = 'serving' | 'grams';
@@ -9,15 +9,24 @@ export function buildItem(
   mode: ServingMode,
   amount: number,
 ): Partial<FoodItem> & { name: string } {
-  const base =
-    mode === 'serving' && product.perServing
-      ? product.perServing
-      : scaleMacros(product.per100g, amount / 100);
-  const m = mode === 'serving' ? scaleMacros(base, amount) : base;
+  const unit = product.servingUnit ?? 'g';
+  let m: Macros;
+  if (mode === 'serving') {
+    // One serving: the product's own figures, else per-100 scaled by the
+    // serving size, else (no serving data at all) treat a serving as 100 g.
+    const one =
+      product.perServing ??
+      (product.servingGrams
+        ? scaleMacros(product.per100g, product.servingGrams / 100)
+        : product.per100g);
+    m = scaleMacros(one, amount);
+  } else {
+    m = scaleMacros(product.per100g, amount / 100);
+  }
   const portion =
     mode === 'serving'
       ? `${trim(amount)} × ${product.servingSize ?? 'serving'}`
-      : `${trim(amount)} g`;
+      : `${trim(amount)} ${unit}`;
   return {
     name: product.brand ? `${product.name} (${product.brand})` : product.name,
     portion,

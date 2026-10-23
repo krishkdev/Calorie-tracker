@@ -1,9 +1,10 @@
+import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db';
 import { mergeSettings } from './repo';
 import { DEFAULT_SETTINGS } from './defaults';
 import type { FoodEntry, Macros, Settings, WeightEntry } from './types';
-import { lastNDayKeys } from '../lib/dates';
+import { lastNDayKeys, todayKey } from '../lib/dates';
 import { sumMacros, ZERO_MACROS } from '../nutrition/totals';
 
 /** undefined while loading, null when the user has not onboarded yet. */
@@ -46,10 +47,29 @@ export interface DailyCalories {
   fat: number;
 }
 
+/**
+ * Today's day key, re-read when the app returns to the foreground and once a
+ * minute, so screens left open across midnight move on to the new day.
+ */
+export function useToday(): string {
+  const [today, setToday] = useState(todayKey);
+  useEffect(() => {
+    const check = () => setToday((prev) => (prev === todayKey() ? prev : todayKey()));
+    const timer = setInterval(check, 60_000);
+    document.addEventListener('visibilitychange', check);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', check);
+    };
+  }, []);
+  return today;
+}
+
 /** One row per day for the last N days (oldest first), zeros for days without entries. */
 export function useDailyCalories(days: number): DailyCalories[] | undefined {
+  const today = useToday();
   return useLiveQuery(async () => {
-    const keys = lastNDayKeys(days);
+    const keys = lastNDayKeys(days, today);
     const entries = await db.entries
       .where('dayKey')
       .between(keys[0], keys[keys.length - 1], true, true)
@@ -64,17 +84,22 @@ export function useDailyCalories(days: number): DailyCalories[] | undefined {
       const m = sumMacros(byDay.get(dayKey) ?? []);
       return { dayKey, kcal: m.kcal, protein: m.proteinG, carbs: m.carbsG, fat: m.fatG };
     });
-  }, [days]);
+  }, [days, today]);
 }
 
-export function useWeights(days: number): WeightEntry[] | undefined {
+/**
+ * Weights in the last N days plus `lead` earlier days, so a trailing average
+ * over the window's first points can use the weights logged just before it.
+ */
+export function useWeights(days: number, lead = 0): WeightEntry[] | undefined {
+  const today = useToday();
   return useLiveQuery(async () => {
-    const keys = lastNDayKeys(days);
+    const keys = lastNDayKeys(days + lead, today);
     return db.weights
       .where('dayKey')
       .between(keys[0], keys[keys.length - 1], true, true)
       .sortBy('dayKey');
-  }, [days]);
+  }, [days, lead, today]);
 }
 
 export function useLatestWeight(): WeightEntry | null | undefined {

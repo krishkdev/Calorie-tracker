@@ -14,28 +14,86 @@ export function extractJson(raw: string): unknown {
   const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fence) attempts.push(fence[1].trim());
 
-  // First "{" to last "}" in case of surrounding prose.
-  const first = text.indexOf('{');
-  const last = text.lastIndexOf('}');
-  if (first !== -1 && last > first) attempts.push(text.slice(first, last + 1));
+  // Every balanced {...} or [...] in the text, so prose with stray braces
+  // before the JSON, or two objects in a row, still yield the first real one.
+  for (const candidate of balancedSpans(text)) attempts.push(candidate);
 
   for (const candidate of attempts) {
-    try {
-      return JSON.parse(candidate);
-    } catch {
-      // try the next candidate
+    for (const variant of [candidate, stripTrailingCommas(candidate)]) {
+      try {
+        return JSON.parse(variant);
+      } catch {
+        // try the next candidate
+      }
     }
   }
   throw new AIError('bad_json', 'The model did not return valid JSON.', undefined, raw);
 }
 
+/** Substrings that start at a bracket and end at its matching close bracket. */
+function balancedSpans(text: string): string[] {
+  const spans: string[] = [];
+  for (let i = 0; i < text.length && spans.length < 8; i++) {
+    const open = text[i];
+    if (open !== '{' && open !== '[') continue;
+    let depth = 0;
+    let inString = false;
+    for (let j = i; j < text.length; j++) {
+      const ch = text[j];
+      if (inString) {
+        if (ch === '\\') j++;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') inString = true;
+      else if (ch === '{' || ch === '[') depth++;
+      else if (ch === '}' || ch === ']') {
+        depth--;
+        if (depth === 0) {
+          spans.push(text.slice(i, j + 1));
+          break;
+        }
+      }
+    }
+  }
+  return spans;
+}
+
+function stripTrailingCommas(text: string): string {
+  return text.replace(/,\s*([}\]])/g, '$1');
+}
+
 function num(v: unknown): number | null {
   if (typeof v === 'number') return Number.isFinite(v) ? v : null;
   if (typeof v === 'string') {
-    const n = Number.parseFloat(v.replace(/[^0-9.+-]/g, ''));
+    // First numeric token only: "approx. 250" -> 250, "250 kcal (100 g)" -> 250,
+    // ".5 g" -> 0.5, "1,200 kcal" -> 1200, "45,5" (decimal comma) -> 45.5.
+    const m = v.match(/-?(?:\d[\d,]*(?:\.\d+)?|\.\d+)/);
+    if (!m) return null;
+    const token = /^-?\d{1,3}(?:,\d{3})+(?:\.\d+)?$/.test(m[0])
+      ? m[0].replace(/,/g, '') // thousands separators
+      : m[0].replace(/,(\d+)$/, '.$1'); // decimal comma
+    const n = Number.parseFloat(token);
     return Number.isFinite(n) ? n : null;
   }
+  if (v && typeof v === 'object') {
+    // {"value": 250, "unit": "kcal"} style
+    const o = v as Record<string, unknown>;
+    return num(o.value ?? o.amount ?? o.quantity ?? null);
+  }
   return null;
+}
+
+/** Portion may arrive as text or as {"amount": 100, "unit": "g"}. */
+function text(v: unknown): string {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'object') {
+    return Object.values(v as Record<string, unknown>)
+      .filter((x) => typeof x === 'string' || typeof x === 'number')
+      .join(' ')
+      .trim();
+  }
+  return String(v).trim();
 }
 
 function pick(obj: Record<string, unknown>, ...keys: string[]): unknown {
@@ -53,6 +111,24 @@ export function normalizeResult(data: unknown, raw: string): AnalysisResult {
   // Some models return a bare array or a single item object.
   if (Array.isArray(data)) list = data;
   if (!Array.isArray(list) && 'name' in obj) list = [obj];
+  // {"items": {"Apple": {...}, "Banana": {...}}}: keys are the names.
+  if (list && !Array.isArray(list) && typeof list === 'object') list = keyedToArray(list);
+  // {"meal": {"items": [...]}}: one level deeper.
+  if (!Array.isArray(list)) {
+    for (const v of Object.values(obj)) {
+      if (Array.isArray(v)) {
+        list = v;
+        break;
+      }
+      if (v && typeof v === 'object') {
+        const inner = pick(v as Record<string, unknown>, 'items', 'foods', 'food_items', 'results');
+        if (Array.isArray(inner)) {
+          list = inner;
+          break;
+        }
+      }
+    }
+  }
   if (!Array.isArray(list)) list = [];
 
   const items: AnalyzedItem[] = [];
@@ -66,11 +142,12 @@ export function normalizeResult(data: unknown, raw: string): AnalysisResult {
     const carbs = num(pick(it, 'carbs_g', 'carbs', 'carbohydrates_g', 'carbohydrates')) ?? 0;
     const fat = num(pick(it, 'fat_g', 'fat', 'fats')) ?? 0;
     let confidence = num(pick(it, 'confidence')) ?? 0.5;
-    // "85" means 85%; a stray 1.5 or 2 is just out of range.
+    // "85" means 85%, "7" means 7 out of 10; anything else is a 0-1 fraction.
     if (confidence > 10) confidence = confidence / 100;
+    else if (confidence > 1) confidence = confidence / 10;
     items.push({
       name,
-      portion: String(pick(it, 'portion', 'serving', 'quantity', 'amount') ?? '').trim(),
+      portion: text(pick(it, 'portion', 'serving', 'quantity', 'amount')),
       calories: Math.max(0, Math.round(calories)),
       protein_g: Math.max(0, round1(protein)),
       carbs_g: Math.max(0, round1(carbs)),
@@ -86,6 +163,14 @@ export function normalizeResult(data: unknown, raw: string): AnalysisResult {
 
 function round1(n: number): number {
   return Math.round(n * 10) / 10;
+}
+
+function keyedToArray(obj: object): unknown[] {
+  return Object.entries(obj as Record<string, unknown>).map(([key, value]) =>
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? { name: key, ...(value as Record<string, unknown>) }
+      : { name: key },
+  );
 }
 
 export function parseAnalysis(raw: string): AnalysisResult {

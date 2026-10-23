@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { FoodItem } from '../db/types';
 import { itemMacros } from '../nutrition/totals';
+import NumberInput from './NumberInput';
 
 interface Props {
   item: FoodItem;
@@ -14,7 +15,6 @@ export default function FoodItemRow({ item, onChange, onRemove }: Props) {
   const eff = itemMacros(item);
   const set = <K extends keyof FoodItem>(key: K, value: FoodItem[K]) =>
     onChange({ ...item, [key]: value });
-  const num = (v: string) => (v === '' ? 0 : Number(v));
 
   return (
     <li className="card space-y-2">
@@ -57,15 +57,14 @@ export default function FoodItemRow({ item, onChange, onRemove }: Props) {
           >
             −
           </button>
-          <input
-            type="number"
+          <NumberInput
             inputMode="decimal"
             step="0.25"
             min="0"
             className="input w-16 py-1.5 text-center"
             value={item.quantity}
             aria-label="Quantity"
-            onChange={(e) => set('quantity', num(e.target.value))}
+            onChange={(v) => set('quantity', v)}
           />
           <button
             type="button"
@@ -119,13 +118,12 @@ function NumField({
   return (
     <label className="block">
       <span className="block text-[11px] text-gray-500">{label}</span>
-      <input
-        type="number"
+      <NumberInput
         inputMode="decimal"
         min="0"
         className="input px-2 py-1 text-sm"
         value={Number.isFinite(value) ? value : 0}
-        onChange={(e) => onChange(e.target.value === '' ? 0 : Number(e.target.value))}
+        onChange={onChange}
       />
     </label>
   );

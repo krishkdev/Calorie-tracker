@@ -117,17 +117,27 @@ function EntryForm({
     navigate(`/home?day=${dayKey}`, { replace: true });
   }
 
-  async function saveFavorite() {
-    const name = prompt(
-      'Name this favorite',
+  // Inline instead of prompt()/alert(): installed PWAs may suppress native dialogs.
+  const [favName, setFavName] = useState<string | null>(null);
+  const [favStatus, setFavStatus] = useState<string | null>(null);
+
+  function openFavorite() {
+    setFavStatus(null);
+    setFavName(
       items
-        .map((i) => i.name)
+        .map((i) => i.name.trim())
+        .filter(Boolean)
         .join(', ')
         .slice(0, 40),
     );
+  }
+
+  async function saveFavorite() {
+    const name = favName?.trim();
     if (!name) return;
     await addFavorite(name, items);
-    alert('Saved to favorites.');
+    setFavName(null);
+    setFavStatus(`Saved "${name}" to favorites.`);
   }
 
   return (
@@ -212,12 +222,55 @@ function EntryForm({
         {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Save entry'}
       </button>
 
+      {favName !== null && (
+        <div className="card space-y-2">
+          <label className="block">
+            <span className="label">Favorite name</span>
+            <input
+              className="input"
+              value={favName}
+              autoFocus
+              maxLength={60}
+              onChange={(e) => setFavName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void saveFavorite();
+                }
+              }}
+            />
+          </label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="btn btn-primary flex-1"
+              disabled={!favName.trim()}
+              onClick={() => void saveFavorite()}
+            >
+              Save favorite
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary flex-1"
+              onClick={() => setFavName(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+      {favStatus && (
+        <p className="text-center text-sm text-gray-600 dark:text-gray-400" role="status">
+          {favStatus}
+        </p>
+      )}
+
       <div className="flex gap-2">
         <button
           type="button"
           className="btn btn-secondary flex-1"
-          disabled={!valid}
-          onClick={() => void saveFavorite()}
+          disabled={!valid || favName !== null}
+          onClick={openFavorite}
         >
           ☆ Save as favorite
         </button>

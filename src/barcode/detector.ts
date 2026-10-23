@@ -21,7 +21,14 @@ interface BarcodeDetectorCtor {
   getSupportedFormats(): Promise<string[]>;
 }
 
-const FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39'];
+// Retail food codes only: QR codes and alphanumeric formats share packaging space
+// and would otherwise be "found" first.
+const FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e'];
+
+/** EAN-8/13, UPC-A/E, GTIN-14. Anything else keeps the scanner running. */
+export function isRetailCode(value: string): boolean {
+  return /^\d{8,14}$/.test(value.trim());
+}
 
 export function hasCamera(): boolean {
   return typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia);
@@ -76,13 +83,17 @@ async function startNative(
   }
 
   let stopped = false;
+  let cancelled = false; // set by the caller's stop(), survives the ZXing hand-over
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let fallback: ScanControls | undefined;
 
   const stop = () => {
     stopped = true;
+    cancelled = true;
     if (timer) clearTimeout(timer);
     stream.getTracks().forEach((t) => t.stop());
     video.srcObject = null;
+    fallback?.stop();
   };
 
   const tick = async () => {
@@ -90,16 +101,28 @@ async function startNative(
     try {
       if (video.readyState >= 2) {
         const codes = await detector.detect(video);
-        const hit = codes.find((c) => c.rawValue);
+        const hit = codes.find((c) => isRetailCode(c.rawValue));
         if (hit) {
           stop();
-          onResult(hit.rawValue);
+          onResult(hit.rawValue.trim());
           return;
         }
       }
-    } catch (e) {
-      stop();
-      onError(e instanceof Error ? e : new Error(String(e)));
+    } catch {
+      // detect() can reject on devices whose barcode module is missing even
+      // though the API exists (Android without the ML Kit module). Hand the
+      // camera to ZXing instead of giving up.
+      stopped = true;
+      if (timer) clearTimeout(timer);
+      stream.getTracks().forEach((t) => t.stop());
+      video.srcObject = null;
+      try {
+        fallback = await startZxing(video, onResult, onError);
+        // The screen may have been left while ZXing was starting.
+        if (cancelled) fallback.stop();
+      } catch (e) {
+        if (!cancelled) onError(e instanceof Error ? e : new Error(String(e)));
+      }
       return;
     }
     timer = setTimeout(() => void tick(), 180);
@@ -113,8 +136,17 @@ async function startZxing(
   onResult: (code: string) => void,
   onError: (err: Error) => void,
 ): Promise<ScanControls> {
-  const { BrowserMultiFormatReader } = await import('@zxing/browser');
-  const reader = new BrowserMultiFormatReader(undefined, { delayBetweenScanAttempts: 150 });
+  const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([
+    import('@zxing/browser'),
+    import('@zxing/library'),
+  ]);
+  const hints = new Map([
+    [
+      DecodeHintType.POSSIBLE_FORMATS,
+      [BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E],
+    ],
+  ]);
+  const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 150 });
   let done = false;
   try {
     const controls = await reader.decodeFromConstraints(
@@ -122,10 +154,11 @@ async function startZxing(
       video,
       (result, _err, ctl) => {
         if (done) return;
-        if (result) {
+        const value = result?.getText();
+        if (value && isRetailCode(value)) {
           done = true;
           ctl.stop();
-          onResult(result.getText());
+          onResult(value.trim());
         }
       },
     );

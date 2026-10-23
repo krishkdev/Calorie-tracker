@@ -32,7 +32,8 @@ export function getStoredTheme(): Theme {
 export function applyStoredTheme(): void {
   const theme = getStoredTheme();
   applyTheme(theme);
-  if (theme === 'system' && typeof window !== 'undefined' && window.matchMedia) {
+  // Always listen: the user may switch to "System" later without a reload.
+  if (typeof window !== 'undefined' && window.matchMedia) {
     window
       .matchMedia('(prefers-color-scheme: dark)')
       .addEventListener('change', () => applyTheme(getStoredTheme()));

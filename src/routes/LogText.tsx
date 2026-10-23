@@ -7,8 +7,8 @@ import type { AIError } from '../ai/types';
 import AIErrorCard from '../components/AIErrorCard';
 import BusyHint from '../components/BusyHint';
 import { useSettings } from '../db/hooks';
-import type { MealType } from '../db/types';
 import { safeDayKey } from '../lib/dates';
+import { mealFromParam } from '../lib/meals';
 import type { ReviewState } from './ReviewEntry';
 
 const EXAMPLES = [
@@ -49,12 +49,13 @@ export default function LogText() {
       const state: ReviewState = {
         items: itemsFromAnalysis(result),
         note: text.trim(),
-        meal: (params.get('meal') as MealType | null) ?? undefined,
+        meal: mealFromParam(params.get('meal')),
         dayKey: params.get('day') ? safeDayKey(params.get('day')) : undefined,
       };
       navigate('/entry/new', { state });
     } catch (e) {
-      setError(toAIError(e));
+      const err = toAIError(e);
+      if (err.code !== 'aborted') setError(err); // Cancel is not an error
     } finally {
       setBusy(false);
     }

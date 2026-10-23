@@ -26,7 +26,43 @@ describe('mapProduct', () => {
     expect(p.per100g).toEqual({ kcal: 588, proteinG: 25, carbsG: 20, fatG: 50 });
     expect(p.servingGrams).toBe(32);
     expect(p.servingSize).toBe('32 g');
-    expect(p.perServing).toEqual({ kcal: 188, proteinG: 8, carbsG: 6.4, fatG: 16 });
+    expect(p.perServing).toEqual({ kcal: 188.2, proteinG: 8, carbsG: 6.4, fatG: 16 });
+  });
+
+  it('fills missing per-serving fields from the per-100g values', () => {
+    const p = mapProduct('123', {
+      ...base,
+      product: {
+        ...base.product,
+        nutriments: { ...base.product!.nutriments, 'energy-kcal_serving': 190 },
+      },
+    })!;
+    expect(p.perServing).toEqual({ kcal: 190, proteinG: 8, carbsG: 6.4, fatG: 16 });
+  });
+
+  it('estimates energy from macros when the product has none', () => {
+    const p = mapProduct('123', {
+      ...base,
+      product: {
+        ...base.product,
+        nutriments: { proteins_100g: 10, carbohydrates_100g: 20, fat_100g: 5 },
+      },
+    })!;
+    expect(p.per100g.kcal).toBe(165);
+  });
+
+  it('labels millilitre servings', () => {
+    const p = mapProduct('123', {
+      ...base,
+      product: {
+        ...base.product,
+        serving_size: undefined,
+        serving_quantity: 330,
+        serving_quantity_unit: 'ml',
+      },
+    })!;
+    expect(p.servingUnit).toBe('ml');
+    expect(p.servingSize).toBe('330 ml');
   });
 
   it('prefers explicit per-serving fields', () => {

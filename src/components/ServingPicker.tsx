@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { FoodItem, ProductInfo } from '../db/types';
 import { buildItem, type ServingMode } from '../barcode/serving';
+import NumberInput from './NumberInput';
 
 interface Props {
   product: ProductInfo;
@@ -13,6 +14,7 @@ export default function ServingPicker({ product, onAdd }: Props) {
   const [mode, setMode] = useState<ServingMode>(canServing ? 'serving' : 'grams');
   const [amount, setAmount] = useState<number>(canServing ? 1 : (product.servingGrams ?? 100));
 
+  const unit = product.servingUnit ?? 'g';
   const item = buildItem(product, mode, amount);
 
   return (
@@ -29,8 +31,8 @@ export default function ServingPicker({ product, onAdd }: Props) {
           <p className="truncate font-semibold">{product.name}</p>
           {product.brand && <p className="truncate text-sm text-gray-500">{product.brand}</p>}
           <p className="text-xs text-gray-500">
-            Per 100 g: {product.per100g.kcal} kcal · P {product.per100g.proteinG} · C{' '}
-            {product.per100g.carbsG} · F {product.per100g.fatG}
+            Per 100 {unit}: {Math.round(product.per100g.kcal)} kcal · P {product.per100g.proteinG} ·
+            C {product.per100g.carbsG} · F {product.per100g.fatG}
           </p>
         </div>
       </div>
@@ -63,22 +65,23 @@ export default function ServingPicker({ product, onAdd }: Props) {
             setAmount(product.servingGrams ?? 100);
           }}
         >
-          Grams
+          {unit === 'ml' ? 'Millilitres' : 'Grams'}
         </button>
       </div>
 
       <label className="block">
         <span className="label">
-          {mode === 'serving' ? 'Number of servings' : 'Amount in grams'}
+          {mode === 'serving'
+            ? 'Number of servings'
+            : `Amount in ${unit === 'ml' ? 'millilitres' : 'grams'}`}
         </span>
-        <input
-          type="number"
+        <NumberInput
           inputMode="decimal"
           min="0"
           step={mode === 'serving' ? '0.5' : '5'}
           className="input text-center text-lg"
           value={amount}
-          onChange={(e) => setAmount(e.target.value === '' ? 0 : Number(e.target.value))}
+          onChange={setAmount}
         />
       </label>
 

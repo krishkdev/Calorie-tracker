@@ -2,7 +2,7 @@ import type { Macros, ProductInfo } from '../db/types';
 import { cacheProduct, getCachedProduct } from '../db/repo';
 
 const FIELDS =
-  'code,product_name,product_name_en,brands,serving_size,serving_quantity,nutriments,image_front_small_url,quantity';
+  'code,product_name,product_name_en,brands,serving_size,serving_quantity,serving_quantity_unit,nutriments,image_front_small_url,quantity';
 
 export class ProductNotFoundError extends Error {
   constructor(public barcode: string) {
@@ -22,6 +22,7 @@ export interface OFFResponse {
     brands?: string;
     serving_size?: string;
     serving_quantity?: number | string;
+    serving_quantity_unit?: string;
     quantity?: string;
     image_front_small_url?: string;
     nutriments?: Record<string, number | string | undefined>;
@@ -34,25 +35,47 @@ function num(v: number | string | undefined): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+interface PartialMacros {
+  kcal?: number;
+  proteinG?: number;
+  carbsG?: number;
+  fatG?: number;
+}
+
 function macrosFrom(
   n: Record<string, number | string | undefined>,
   suffix: '_100g' | '_serving',
-): Macros | undefined {
+): PartialMacros {
   let kcal = num(n[`energy-kcal${suffix}`]);
   if (kcal === undefined) {
     const kj = num(n[`energy-kj${suffix}`]) ?? num(n[`energy${suffix}`]);
     if (kj !== undefined) kcal = kj / 4.184;
   }
-  const proteinG = num(n[`proteins${suffix}`]);
-  const carbsG = num(n[`carbohydrates${suffix}`]);
-  const fatG = num(n[`fat${suffix}`]);
-  if (kcal === undefined && proteinG === undefined && carbsG === undefined && fatG === undefined)
-    return undefined;
   return {
-    kcal: Math.round(kcal ?? 0),
-    proteinG: round1(proteinG ?? 0),
-    carbsG: round1(carbsG ?? 0),
-    fatG: round1(fatG ?? 0),
+    kcal,
+    proteinG: num(n[`proteins${suffix}`]),
+    carbsG: num(n[`carbohydrates${suffix}`]),
+    fatG: num(n[`fat${suffix}`]),
+  };
+}
+
+function hasAny(m: PartialMacros): boolean {
+  return Object.values(m).some((v) => v !== undefined);
+}
+
+/** Fill the gaps in a partial macro set: from a scaled reference, else from the 4/4/9 rule. */
+function complete(m: PartialMacros, reference?: Macros, factor = 1): Macros {
+  const proteinG = m.proteinG ?? (reference ? reference.proteinG * factor : 0);
+  const carbsG = m.carbsG ?? (reference ? reference.carbsG * factor : 0);
+  const fatG = m.fatG ?? (reference ? reference.fatG * factor : 0);
+  const kcal =
+    m.kcal ?? (reference ? reference.kcal * factor : proteinG * 4 + carbsG * 4 + fatG * 9);
+  // Keep one decimal so scaling later stays accurate; screens round for display.
+  return {
+    kcal: round1(kcal),
+    proteinG: round1(proteinG),
+    carbsG: round1(carbsG),
+    fatG: round1(fatG),
   };
 }
 
@@ -65,18 +88,21 @@ export function mapProduct(barcode: string, data: OFFResponse): ProductInfo | nu
   if (String(data.status) !== '1' || !data.product) return null;
   const p = data.product;
   const n = p.nutriments ?? {};
-  const per100g = macrosFrom(n, '_100g');
-  if (!per100g) return null;
+  const raw100 = macrosFrom(n, '_100g');
+  if (!hasAny(raw100)) return null;
+  const per100g = complete(raw100);
 
-  const servingGrams = num(p.serving_quantity);
-  let perServing = macrosFrom(n, '_serving');
-  if (!perServing && servingGrams) {
-    perServing = {
-      kcal: Math.round((per100g.kcal * servingGrams) / 100),
-      proteinG: round1((per100g.proteinG * servingGrams) / 100),
-      carbsG: round1((per100g.carbsG * servingGrams) / 100),
-      fatG: round1((per100g.fatG * servingGrams) / 100),
-    };
+  const servingGrams = num(p.serving_quantity) || undefined;
+  const servingUnit = /ml|l\b|cl/i.test(p.serving_quantity_unit ?? '') ? 'ml' : 'g';
+  const rawServing = macrosFrom(n, '_serving');
+  let perServing: Macros | undefined;
+  if (hasAny(rawServing) || servingGrams) {
+    // Missing per-serving fields come from the per-100 g values, never a flat 0.
+    perServing = complete(
+      rawServing,
+      servingGrams ? per100g : undefined,
+      servingGrams ? servingGrams / 100 : 1,
+    );
   }
 
   const name = (p.product_name || p.product_name_en || '').trim() || `Product ${barcode}`;
@@ -86,8 +112,10 @@ export function mapProduct(barcode: string, data: OFFResponse): ProductInfo | nu
     brand: p.brands?.split(',')[0]?.trim() || undefined,
     per100g,
     perServing,
-    servingSize: p.serving_size?.trim() || (servingGrams ? `${servingGrams} g` : undefined),
-    servingGrams: servingGrams || undefined,
+    servingSize:
+      p.serving_size?.trim() || (servingGrams ? `${servingGrams} ${servingUnit}` : undefined),
+    servingGrams,
+    servingUnit,
     imageUrl: p.image_front_small_url,
   };
 }

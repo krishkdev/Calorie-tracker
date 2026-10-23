@@ -1,10 +1,7 @@
 import 'fake-indexeddb/auto';
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
-import { afterEach, vi } from 'vitest';
-
-// vite-plugin-pwa's virtual module does not exist under Vitest.
-vi.mock('virtual:pwa-register', () => ({ registerSW: () => () => {} }));
+import { afterEach } from 'vitest';
 
 // jsdom has no matchMedia; theme code queries it at startup.
 if (!window.matchMedia) {

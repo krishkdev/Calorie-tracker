@@ -1,9 +1,20 @@
 import { db } from './db';
 import { mergeSettings, normalizeItem } from './repo';
-import { isDayKey } from '../lib/dates';
+import { isDayKey, todayKey } from '../lib/dates';
+import { ACTIVITY_MULTIPLIERS, isPlausibleBody } from '../nutrition/tdee';
 import { entryTotals } from '../nutrition/totals';
-import type { MealType } from './types';
-import type { Favorite, FoodEntry, Profile, Settings, WeightEntry } from './types';
+import type {
+  Activity,
+  Favorite,
+  FoodEntry,
+  GoalType,
+  Macros,
+  MealType,
+  Profile,
+  Settings,
+  Sex,
+  WeightEntry,
+} from './types';
 
 export const BACKUP_SCHEMA_VERSION = 1;
 
@@ -101,9 +112,11 @@ export async function importBackup(data: unknown, mode: ImportMode): Promise<Imp
   // Rebuild every record from scratch so a hand-edited or foreign file can
   // never store a row that later crashes a screen.
   const MEALS: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
+  const today = todayKey();
   const entries: FoodEntry[] = [];
   for (const raw of backup.entries as Partial<FoodEntry & { photoThumb: string }>[]) {
-    if (!raw || typeof raw.id !== 'string' || !isDayKey(raw.dayKey)) continue;
+    // Future days would be unreachable from every screen, so they are skipped.
+    if (!raw || typeof raw.id !== 'string' || !isDayKey(raw.dayKey) || raw.dayKey > today) continue;
     const rawItems = Array.isArray(raw.items) ? raw.items : [];
     const items = rawItems
       .filter((i) => i && typeof i === 'object')
@@ -126,14 +139,26 @@ export async function importBackup(data: unknown, mode: ImportMode): Promise<Imp
       updatedAt: Number.isFinite(raw.updatedAt) ? (raw.updatedAt as number) : now,
     });
   }
-  const weights: WeightEntry[] = backup.weights.filter(
-    (w): w is WeightEntry =>
-      Boolean(w) &&
+  const byDay = new Map<string, WeightEntry>();
+  for (const w of backup.weights) {
+    if (
+      w &&
       typeof w.id === 'string' &&
       isDayKey(w.dayKey) &&
+      w.dayKey <= today &&
       Number.isFinite(w.weightKg) &&
-      w.weightKg > 0,
-  );
+      w.weightKg > 0
+    ) {
+      byDay.set(w.dayKey, {
+        id: w.id,
+        dayKey: w.dayKey,
+        weightKg: w.weightKg,
+        loggedAt: Number.isFinite(w.loggedAt) ? w.loggedAt : Date.now(),
+        ...(typeof w.note === 'string' ? { note: w.note } : {}),
+      }); // last one per day wins
+    }
+  }
+  const weights = [...byDay.values()];
   const favorites: Favorite[] = backup.favorites
     .filter((f) => f && typeof f.id === 'string' && typeof f.name === 'string')
     .map((f) => ({
@@ -146,14 +171,7 @@ export async function importBackup(data: unknown, mode: ImportMode): Promise<Imp
       lastUsedAt: Number.isFinite(f.lastUsedAt) ? f.lastUsedAt : Date.now(),
       createdAt: Number.isFinite(f.createdAt) ? f.createdAt : Date.now(),
     }));
-  const profile =
-    backup.profile &&
-    typeof backup.profile === 'object' &&
-    backup.profile.targets &&
-    Number.isFinite(backup.profile.targets.kcal) &&
-    Number.isFinite(backup.profile.weightKg)
-      ? backup.profile
-      : null;
+  const profile = sanitizeProfile(backup.profile);
 
   await db.transaction(
     'rw',
@@ -171,10 +189,22 @@ export async function importBackup(data: unknown, mode: ImportMode): Promise<Imp
       if (backup.settings) {
         const current = await db.settings.get('app');
         const incoming = mergeSettings(backup.settings);
-        if (!incoming.provider.apiKey && current?.provider.apiKey) {
+        // Keys are per provider: only carry the current one over for the same preset.
+        if (
+          !incoming.provider.apiKey &&
+          current?.provider.apiKey &&
+          current.provider.preset === incoming.provider.preset
+        ) {
           incoming.provider = { ...incoming.provider, apiKey: current.provider.apiKey };
         }
         await db.settings.put(incoming);
+      }
+      if (mode === 'merge') {
+        // Backups drop thumbnails by default; merging must not erase the ones we have.
+        const existing = await db.entries.bulkGet(entries.map((e) => e.id));
+        entries.forEach((e, i) => {
+          if (!e.photoThumb && existing[i]?.photoThumb) e.photoThumb = existing[i].photoThumb;
+        });
       }
       await db.entries.bulkPut(entries);
       for (const w of weights) {
@@ -205,11 +235,64 @@ async function blobToBase64(blob: Blob): Promise<string> {
   return `data:${blob.type || 'image/jpeg'};base64,${btoa(bin)}`;
 }
 
-async function base64ToBlob(dataUrl: string): Promise<Blob> {
-  const [head, body] = dataUrl.split(',', 2);
-  const type = /data:([^;]+)/.exec(head)?.[1] ?? 'image/jpeg';
-  const bin = atob(body ?? '');
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return new Blob([bytes], { type });
+async function base64ToBlob(dataUrl: string): Promise<Blob | undefined> {
+  try {
+    const [head, body] = dataUrl.split(',', 2);
+    const type = /data:([^;]+)/.exec(head)?.[1] ?? 'image/jpeg';
+    const bin = atob(body ?? '');
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes], { type });
+  } catch {
+    return undefined; // one corrupt thumbnail must not abort the whole import
+  }
+}
+
+const SEXES: Sex[] = ['male', 'female'];
+const GOALS: GoalType[] = ['lose', 'maintain', 'gain'];
+
+function finiteNum(v: unknown): number | undefined {
+  return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+}
+
+/** Rebuild the profile field by field; anything implausible drops the profile. */
+function sanitizeProfile(raw: unknown): Profile | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const p = raw as Partial<Profile>;
+  const t = (p.targets ?? {}) as Partial<Macros>;
+  const targets = {
+    kcal: finiteNum(t.kcal),
+    proteinG: finiteNum(t.proteinG),
+    carbsG: finiteNum(t.carbsG),
+    fatG: finiteNum(t.fatG),
+  };
+  const age = finiteNum(p.age);
+  const heightCm = finiteNum(p.heightCm);
+  const weightKg = finiteNum(p.weightKg);
+  if (
+    age === undefined ||
+    heightCm === undefined ||
+    weightKg === undefined ||
+    !isPlausibleBody({ age, heightCm, weightKg }) ||
+    !SEXES.includes(p.sex as Sex) ||
+    !GOALS.includes(p.goal as GoalType) ||
+    !(p.activity && p.activity in ACTIVITY_MULTIPLIERS) ||
+    Object.values(targets).some((v) => v === undefined || v < 0) ||
+    (targets.kcal ?? 0) <= 0
+  ) {
+    return null;
+  }
+  return {
+    id: 'me',
+    sex: p.sex as Sex,
+    age,
+    heightCm,
+    weightKg,
+    activity: p.activity as Activity,
+    goal: p.goal as GoalType,
+    rateKgPerWeek: Math.max(0, finiteNum(p.rateKgPerWeek) ?? 0),
+    targets: targets as Macros,
+    targetsOverridden: p.targetsOverridden === true,
+    onboardedAt: finiteNum(p.onboardedAt) ?? Date.now(),
+  };
 }

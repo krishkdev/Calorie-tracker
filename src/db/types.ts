@@ -122,5 +122,7 @@ export interface ProductInfo {
   perServing?: Macros;
   servingSize?: string;
   servingGrams?: number;
+  /** Unit of servingGrams as Open Food Facts reports it: 'g' or 'ml'. */
+  servingUnit?: 'g' | 'ml';
   imageUrl?: string;
 }
