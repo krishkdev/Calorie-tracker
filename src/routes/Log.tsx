@@ -1,3 +1,5 @@
+import Icon, { type IconName } from '../components/Icon';
+import { getPreset } from '../ai/presets';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useFavorites, useSettings } from '../db/hooks';
 import { addEntry, deleteFavorite, touchFavorite } from '../db/repo';
@@ -13,6 +15,9 @@ export default function Log() {
   const qs = params.toString();
   const suffix = qs ? `?${qs}` : '';
   const vision = settings.provider.supportsVision;
+  const preset = getPreset(settings.provider.preset);
+  const configured = !preset.needsKey || Boolean(settings.provider.apiKey.trim());
+  const canPhoto = vision && configured;
 
   async function logFavorite(fav: Favorite) {
     await addEntry({
@@ -30,37 +35,64 @@ export default function Log() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Log food</h1>
-      <div className="grid grid-cols-2 gap-3">
-        <Tile to={`/log/text${suffix}`} title="Describe it" hint="“2 eggs and toast”" icon="✍️" />
-        <Tile
-          to={`/log/photo${suffix}`}
-          title="Photo"
-          hint={vision ? 'Snap your plate' : 'Needs a vision model'}
-          icon="📷"
-          disabled={!vision}
-        />
-        <Tile to={`/log/barcode${suffix}`} title="Scan barcode" hint="Packaged food" icon="▮▯▮" />
-        <Tile to={`/entry/new${suffix}`} title="Manual" hint="Type the numbers" icon="＋" />
-      </div>
-      {!vision && (
-        <p className="text-xs text-gray-500">
-          Your current model ({settings.provider.model || 'not set'}) can't read images.{' '}
-          <Link to="/settings" className="text-brand-600 underline">
-            Switch to a vision model
-          </Link>{' '}
-          to enable photo logging.
+      <header className="screen-heading">
+        <h1>Log your food.</h1>
+        <p>
+          A photo, a few words, or the numbers.
+          <br />
+          Make it work for you.
         </p>
-      )}
+      </header>
+      <section className="photo-hero" aria-labelledby="photo-title">
+        <div className="hero-camera">
+          <Icon name="camera" size={42} />
+        </div>
+        <p className="eyebrow">PHOTO LOGGING</p>
+        <h2 id="photo-title">
+          Snap it.
+          <br />
+          Know your plate.
+        </h2>
+        <p>
+          {canPhoto
+            ? 'Your AI estimates the calories and macros. You review every detail before saving.'
+            : 'Connect a vision model with your own key, or use a local model. No subscription needed.'}
+        </p>
+        <Link to={canPhoto ? `/log/photo${suffix}` : '/settings'} className="btn">
+          <Icon name={canPhoto ? 'camera' : 'settings'} size={18} />
+          {canPhoto ? 'Take a photo' : 'Set up photo logging'}
+          <Icon name="arrow" size={16} />
+        </Link>
+      </section>
+      <div className="log-options">
+        <Tile to={`/log/text${suffix}`} title="Describe it" hint="In your own words" icon="edit" />
+        <Tile to={`/log/barcode${suffix}`} title="Scan barcode" hint="Packaged food" icon="scan" />
+        <Tile
+          to={`/entry/new${suffix}`}
+          title="Add manually"
+          hint="You know the numbers"
+          icon="plus"
+        />
+      </div>
+      <p className="privacy-footnote">
+        <Icon name="shield" size={13} />
+        Your log stays here. AI runs with your chosen provider.
+      </p>
 
       <section aria-labelledby="favorites-heading" className="space-y-2">
-        <h2 id="favorites-heading" className="font-semibold">
+        <h2 id="favorites-heading" className="text-xl font-semibold">
           Favorites
         </h2>
         {favorites.length === 0 ? (
-          <p className="text-sm text-gray-500">
-            Save any entry as a favorite from its review screen to log it again in one tap.
-          </p>
+          <div className="favorites-empty">
+            <Icon name="heart" size={24} />
+            <p>Your go-to meals, one tap away.</p>
+            <small>
+              Save a meal as a favorite after logging it.
+              <br />
+              It’ll be waiting here next time.
+            </small>
+          </div>
         ) : (
           <ul className="space-y-2">
             {favorites.map((fav) => {
@@ -104,36 +136,19 @@ function Tile({
   title,
   hint,
   icon,
-  disabled,
 }: {
   to: string;
   title: string;
   hint: string;
-  icon: string;
-  disabled?: boolean;
+  icon: IconName;
 }) {
-  const cls = `card flex min-h-28 flex-col justify-between ${disabled ? 'opacity-50' : 'active:bg-gray-50 dark:active:bg-gray-800'}`;
-  const body = (
-    <>
-      <span className="text-2xl" aria-hidden="true">
-        {icon}
-      </span>
-      <span>
-        <span className="block font-semibold">{title}</span>
-        <span className="block text-xs text-gray-500">{hint}</span>
-      </span>
-    </>
-  );
-  if (disabled) {
-    return (
-      <div className={cls} aria-disabled="true">
-        {body}
-      </div>
-    );
-  }
   return (
-    <Link to={to} className={cls}>
-      {body}
+    <Link to={to} className="card log-option">
+      <Icon name={icon} size={24} />
+      <span>
+        <strong>{title}</strong>
+        <small>{hint}</small>
+      </span>
     </Link>
   );
 }

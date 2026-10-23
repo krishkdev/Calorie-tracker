@@ -2,14 +2,14 @@
 """Generate PWA icons into public/icons/ (requires Pillow).
 
 Run: npm run icons
-The icon is a green rounded square with a partial white ring (the calorie ring).
+The icon is a charcoal rounded square with a partial white ring (the calorie ring).
 """
 from pathlib import Path
 
 from PIL import Image, ImageDraw
 
 OUT = Path(__file__).resolve().parent.parent / "public" / "icons"
-BRAND = (22, 163, 74, 255)  # #16a34a
+BRAND = (28, 28, 27, 255)  # #1c1c1b
 WHITE = (255, 255, 255, 255)
 
 

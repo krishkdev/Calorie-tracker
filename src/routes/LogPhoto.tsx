@@ -1,3 +1,4 @@
+import Icon from '../components/Icon';
 import { useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { createProvider } from '../ai';
@@ -101,7 +102,7 @@ export default function LogPhoto() {
         </div>
       ) : (
         <>
-          <label className="card flex min-h-56 cursor-pointer flex-col items-center justify-center gap-2 text-center">
+          <label className="capture-zone">
             {preview ? (
               <img
                 src={preview}
@@ -110,11 +111,11 @@ export default function LogPhoto() {
               />
             ) : (
               <>
-                <span className="text-4xl" aria-hidden="true">
-                  📷
+                <span className="mb-3">
+                  <Icon name="camera" size={44} />
                 </span>
                 <span className="font-semibold">Take or choose a photo</span>
-                <span className="text-xs text-gray-500">
+                <span className="capture-hint">
                   The photo is shrunk on your device before it is sent to the AI.
                 </span>
               </>

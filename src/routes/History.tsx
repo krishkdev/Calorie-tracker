@@ -53,7 +53,10 @@ export default function History() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">History</h1>
+        <div className="screen-heading !mb-0">
+          <h1>Your progress.</h1>
+          <p>The small things add up.</p>
+        </div>
         <div
           className="flex gap-1 rounded-xl bg-gray-200 p-1 dark:bg-gray-800"
           role="radiogroup"
@@ -94,7 +97,7 @@ export default function History() {
         </div>
         <WeightChart weights={weights} units={settings.units} />
         <form
-          className="flex gap-2"
+          className="weight-form"
           onSubmit={(e) => {
             e.preventDefault();
             void saveWeight();

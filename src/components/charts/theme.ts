@@ -1,7 +1,7 @@
-/** Chart colors validated for both light and dark surfaces (see docs/dataviz note in CONTRIBUTING). */
+/** Shared chart colors follow the app theme, including dark mode. */
 export const CHART = {
-  primary: '#16a34a', // brand green: trend lines, bars
-  secondary: '#3b82f6', // blue: raw daily points
+  primary: 'var(--ink)', // trend lines and bars
+  secondary: '#769bc8', // raw daily points
   grid: 'rgba(128,128,128,0.18)',
   axis: 'rgba(128,128,128,0.9)',
   target: 'rgba(128,128,128,0.75)',
