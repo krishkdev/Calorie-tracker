@@ -1,7 +1,7 @@
 import Icon, { type IconName } from '../components/Icon';
 import { getPreset, isProviderConfigured } from '../ai/presets';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useFavorites, useSettingsLoaded } from '../db/hooks';
 import { DEFAULT_SETTINGS } from '../db/defaults';
 import { addEntry, deleteFavorite, touchFavorite } from '../db/repo';
@@ -25,9 +25,13 @@ export default function Log() {
   const canPhoto = vision && configured;
 
   const [logging, setLogging] = useState<string | null>(null);
+  // State updates are batched, so taps in the same tick all see logging === null;
+  // the ref is set synchronously and is what actually blocks the duplicate.
+  const inFlight = useRef(false);
 
   async function logFavorite(fav: Favorite) {
-    if (logging) return; // a second tap must not log the meal twice
+    if (inFlight.current) return; // a second tap must not log the meal twice
+    inFlight.current = true;
     setLogging(fav.id);
     try {
       await addEntry({
@@ -38,6 +42,7 @@ export default function Log() {
       await touchFavorite(fav.id);
       navigate(`/home?day=${safeDayKey(params.get('day'))}`);
     } finally {
+      inFlight.current = false;
       setLogging(null);
     }
   }
