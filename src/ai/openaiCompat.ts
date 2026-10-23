@@ -246,21 +246,17 @@ export class OpenAICompatibleProvider implements FoodAnalysisProvider {
 
     // Overloaded (503) and rate-limited (429) replies are transient on free
     // tiers; one short pause and retry fixes most of them without user action.
-    let res = await this.request(
-      '/chat/completions',
-      { method: 'POST', body: JSON.stringify(body) },
-      signal,
-      ANALYZE_TIMEOUT_MS,
-    );
-    if (RETRY_STATUSES.has(res.status) && !signal?.aborted) {
-      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
-      res = await this.request(
-        '/chat/completions',
-        { method: 'POST', body: JSON.stringify(body) },
-        signal,
-        ANALYZE_TIMEOUT_MS,
-      );
-    }
+    const send = async (payload: Record<string, unknown>) => {
+      const init = { method: 'POST' as const, body: JSON.stringify(payload) };
+      let r = await this.request('/chat/completions', init, signal, ANALYZE_TIMEOUT_MS);
+      if (RETRY_STATUSES.has(r.status) && !signal?.aborted) {
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+        r = await this.request('/chat/completions', init, signal, ANALYZE_TIMEOUT_MS);
+      }
+      return r;
+    };
+
+    let res = await send(body);
     // A 400 with the preset's extra options present usually means this model does
     // not accept one of them (e.g. an unsupported thinking level). Retry once with
     // the plain request so an option mismatch never blocks logging.
@@ -268,12 +264,7 @@ export class OpenAICompatibleProvider implements FoodAnalysisProvider {
       const err = httpError(res.status, await res.text(), this.config);
       if (err.code === 'unauthorized') throw err;
       for (const key of Object.keys(preset.extraBody)) delete body[key];
-      res = await this.request(
-        '/chat/completions',
-        { method: 'POST', body: JSON.stringify(body) },
-        signal,
-        ANALYZE_TIMEOUT_MS,
-      );
+      res = await send(body);
     }
     const text = await res.text();
     if (!res.ok) throw httpError(res.status, text, this.config);

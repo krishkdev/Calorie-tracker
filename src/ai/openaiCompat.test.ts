@@ -104,6 +104,35 @@ describe('OpenAICompatibleProvider.analyze', () => {
     expect(second.messages).toEqual(first.messages);
   });
 
+  it('still retries a transient failure on the fallback request', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify([{ error: { message: 'Thinking level LOW is not supported.' } }]),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    );
+    fetchMock.mockResolvedValueOnce(new Response('{}', { status: 503 }));
+    fetchMock.mockResolvedValueOnce(reply(good));
+    vi.useFakeTimers();
+    try {
+      const pending = new OpenAICompatibleProvider(gemini).analyze({
+        text: '2 eggs',
+        units: 'metric',
+      });
+      const assertion = expect(pending).resolves.toMatchObject({ items: [{ name: 'Egg' }] });
+      await vi.advanceTimersByTimeAsync(2500);
+      await assertion;
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const third = JSON.parse((fetchMock.mock.calls[2] as [string, RequestInit])[1].body as string);
+    expect(third.reasoning_effort).toBeUndefined();
+  });
+
   it('surfaces a 400 that persists without the extras', async () => {
     fetchMock.mockImplementation(
       async () =>
