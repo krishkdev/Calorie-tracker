@@ -89,6 +89,23 @@ describe('parseAnalysis', () => {
     });
   });
 
+  it('keeps leading decimals, signs and thousands separators', () => {
+    const r = parseAnalysis(
+      JSON.stringify({
+        items: [
+          {
+            name: 'A',
+            calories: '1,200 kcal',
+            protein_g: '.5 g',
+            carbs_g: '-.5 g',
+            fat_g: '2,5 g',
+          },
+        ],
+      }),
+    );
+    expect(r.items[0]).toMatchObject({ calories: 1200, protein_g: 0.5, carbs_g: 0, fat_g: 2.5 });
+  });
+
   it('finds items nested one level down or keyed by name', () => {
     const nested = parseAnalysis('{"meal":{"items":[{"name":"Egg","calories":70}]}}');
     expect(nested.items.map((i) => i.name)).toEqual(['Egg']);

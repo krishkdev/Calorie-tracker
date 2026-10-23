@@ -66,10 +66,14 @@ function stripTrailingCommas(text: string): string {
 function num(v: unknown): number | null {
   if (typeof v === 'number') return Number.isFinite(v) ? v : null;
   if (typeof v === 'string') {
-    // First numeric token only: "approx. 250" -> 250, "250 kcal (100 g)" -> 250.
-    const m = v.match(/-?\d+(?:[.,]\d+)?/);
+    // First numeric token only: "approx. 250" -> 250, "250 kcal (100 g)" -> 250,
+    // ".5 g" -> 0.5, "1,200 kcal" -> 1200, "45,5" (decimal comma) -> 45.5.
+    const m = v.match(/-?(?:\d[\d,]*(?:\.\d+)?|\.\d+)/);
     if (!m) return null;
-    const n = Number.parseFloat(m[0].replace(',', '.'));
+    const token = /^-?\d{1,3}(?:,\d{3})+(?:\.\d+)?$/.test(m[0])
+      ? m[0].replace(/,/g, '') // thousands separators
+      : m[0].replace(/,(\d+)$/, '.$1'); // decimal comma
+    const n = Number.parseFloat(token);
     return Number.isFinite(n) ? n : null;
   }
   if (v && typeof v === 'object') {

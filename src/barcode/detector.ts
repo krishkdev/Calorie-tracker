@@ -83,11 +83,13 @@ async function startNative(
   }
 
   let stopped = false;
+  let cancelled = false; // set by the caller's stop(), survives the ZXing hand-over
   let timer: ReturnType<typeof setTimeout> | undefined;
   let fallback: ScanControls | undefined;
 
   const stop = () => {
     stopped = true;
+    cancelled = true;
     if (timer) clearTimeout(timer);
     stream.getTracks().forEach((t) => t.stop());
     video.srcObject = null;
@@ -116,8 +118,10 @@ async function startNative(
       video.srcObject = null;
       try {
         fallback = await startZxing(video, onResult, onError);
+        // The screen may have been left while ZXing was starting.
+        if (cancelled) fallback.stop();
       } catch (e) {
-        onError(e instanceof Error ? e : new Error(String(e)));
+        if (!cancelled) onError(e instanceof Error ? e : new Error(String(e)));
       }
       return;
     }
