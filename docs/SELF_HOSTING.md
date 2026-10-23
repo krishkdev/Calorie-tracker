@@ -36,7 +36,7 @@ Run `npm run preview -- --host` (or `npm run dev -- --host`) and open the printe
 
 ## Updating
 
-Pull the latest changes and redeploy. The service worker updates in the background; users get the new version on their next launch.
+Pull the latest changes and redeploy. The app checks for a new service worker when it comes to the foreground (and hourly while open) and shows a "new version is ready" prompt with a Reload button, so installed PWAs pick updates up without a manual refresh.
 
 ## Vercel
 
