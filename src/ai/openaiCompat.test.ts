@@ -199,6 +199,23 @@ describe('OpenAICompatibleProvider.testConnection', () => {
     expect((init.headers as Record<string, string>)['Content-Type']).toBeUndefined();
   });
 
+  it('falls back to a generation ping when the model list is empty or not JSON', async () => {
+    fetchMock.mockResolvedValueOnce(new Response('<html>proxy</html>', { status: 200 }));
+    fetchMock.mockResolvedValueOnce(reply('OK'));
+    const r = await new OpenAICompatibleProvider(gemini).testConnection();
+    expect(r.ok).toBe(true);
+    expect(r.message).toMatch(/replied: "OK"/);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect((fetchMock.mock.calls[1] as [string])[0]).toMatch(/chat\/completions$/);
+
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValueOnce(models([]));
+    fetchMock.mockResolvedValueOnce(new Response('{"error":{"message":"nope"}}', { status: 401 }));
+    const bad = await new OpenAICompatibleProvider(gemini).testConnection();
+    expect(bad.ok).toBe(false);
+    expect(bad.message).toMatch(/rejected the API key/);
+  });
+
   it('flags a model that the key cannot see and suggests alternatives', async () => {
     fetchMock.mockResolvedValueOnce(
       models(['models/gemini-3.5-flash-lite', 'models/embedding-001']),

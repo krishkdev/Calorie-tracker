@@ -128,7 +128,10 @@ function Form({
           </button>
         </div>
         <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
-          Stored in this browser only and sent only to {preset.name}.
+          Stored in this browser only.{' '}
+          {cfg.proxyUrl?.trim()
+            ? 'Sent to your proxy with each request, so only use a proxy you control.'
+            : `Sent only to ${preset.name}.`}
         </span>
       </label>
 

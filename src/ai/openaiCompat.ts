@@ -108,7 +108,17 @@ export class OpenAICompatibleProvider implements FoodAnalysisProvider {
       if (!res.ok) throw httpError(res.status, text, this.config);
       const ids = parseModelIds(text);
       if (ids.length === 0) {
-        return { ok: true, model, message: 'Connected. Your key works.' };
+        // An empty or non-JSON model list (e.g. a proxy's HTML fallback) proves
+        // nothing, so fall back to a real, small generation.
+        const reply = await this.chat(
+          [{ role: 'user', content: 'Reply with exactly the word OK and nothing else.' }],
+          opts?.signal,
+        );
+        return {
+          ok: true,
+          model,
+          message: `Connected. ${model} replied: "${reply.trim().slice(0, 40)}"`,
+        };
       }
       if (ids.includes(model.trim())) {
         return { ok: true, model, message: `Connected. Your key works and ${model} is available.` };
