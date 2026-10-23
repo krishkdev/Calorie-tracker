@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { createProvider } from '../ai';
 import { configFromPreset, getPreset, PRESETS } from '../ai/presets';
-import type { ConnectionTest } from '../ai/types';
+import type { ConnectionTest, ProbeResult } from '../ai/types';
+import { OpenAICompatibleProvider } from '../ai/openaiCompat';
 import { db } from '../db/db';
 import { mergeSettings, updateSettings } from '../db/repo';
 import type { PresetId, ProviderConfig } from '../db/types';
@@ -43,6 +44,8 @@ function Form({
   const [advanced, setAdvanced] = useState(Boolean(initial.proxyUrl));
   const [test, setTest] = useState<ConnectionTest | null>(null);
   const [testing, setTesting] = useState(false);
+  const [probes, setProbes] = useState<ProbeResult[] | null>(null);
+  const [probing, setProbing] = useState(false);
   const preset = getPreset(cfg.preset);
   const dirty = JSON.stringify(cfg) !== JSON.stringify(initial);
 
@@ -59,6 +62,20 @@ function Form({
       setTest(await createProvider(cfg).testConnection());
     } finally {
       setTesting(false);
+    }
+  }
+
+  async function runDiagnostics() {
+    setProbing(true);
+    setProbes([]);
+    try {
+      setProbes(await new OpenAICompatibleProvider(cfg).diagnose());
+    } catch (e) {
+      setProbes([
+        { label: 'Setup', ok: false, ms: 0, detail: e instanceof Error ? e.message : String(e) },
+      ]);
+    } finally {
+      setProbing(false);
     }
   }
 
@@ -209,6 +226,40 @@ function Form({
           >
             Provider documentation
           </a>
+          <div className="border-t border-gray-200 pt-3 dark:border-gray-800">
+            <button
+              type="button"
+              className="btn btn-secondary w-full"
+              disabled={probing}
+              onClick={() => void runDiagnostics()}
+            >
+              {probing ? 'Running diagnostics…' : 'Run diagnostics'}
+            </button>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Times five small requests with your key to show which option makes the provider slow.
+              Each probe gives up after 30 seconds.
+            </p>
+            {probes && probes.length > 0 && (
+              <ul className="mt-2 space-y-1 text-xs" aria-live="polite">
+                {probes.map((p) => (
+                  <li key={p.label} className="flex gap-2">
+                    <span className={p.ok ? 'text-brand-600' : 'text-red-600'}>
+                      {p.ok ? '✓' : '✗'}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="font-medium">{p.label}</span>{' '}
+                      <span className="tabular-nums text-gray-500">
+                        {(p.ms / 1000).toFixed(1)}s
+                      </span>
+                      <span className="block break-words text-gray-500 dark:text-gray-400">
+                        {p.detail}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       )}
 

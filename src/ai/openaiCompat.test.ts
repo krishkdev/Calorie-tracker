@@ -291,3 +291,47 @@ describe('helpers', () => {
     expect(errorDetail('plain text')).toBe('plain text');
   });
 });
+
+describe('OpenAICompatibleProvider.diagnose', () => {
+  it('runs each probe with its own timing and keeps going after a failure', async () => {
+    fetchMock.mockResolvedValueOnce(models(['models/gemini-3.8-flash']));
+    fetchMock.mockResolvedValueOnce(reply('OK'));
+    fetchMock.mockResolvedValueOnce(
+      new Response('[{"error":{"message":"overloaded"}}]', { status: 503 }),
+    );
+    fetchMock.mockResolvedValueOnce(reply('{"ok":true}'));
+    fetchMock.mockResolvedValueOnce(reply('{"ok":true}'));
+    const r = await new OpenAICompatibleProvider(gemini).diagnose();
+    expect(r.map((p) => [p.label, p.ok])).toEqual([
+      ['List models', true],
+      ['Bare reply (no options)', true],
+      ['Reply with reasoning setting', false],
+      ['Reply with JSON mode', true],
+      ['Reply with all app options', true],
+    ]);
+    expect(r[0].detail).toMatch(/includes yours/);
+    expect(r[2].detail).toMatch(/overloaded/);
+    const bare = JSON.parse((fetchMock.mock.calls[1] as [string, RequestInit])[1].body as string);
+    expect(bare.reasoning_effort).toBeUndefined();
+    expect(bare.response_format).toBeUndefined();
+    const full = JSON.parse((fetchMock.mock.calls[4] as [string, RequestInit])[1].body as string);
+    expect(full.reasoning_effort).toBe('minimal');
+    expect(full.response_format).toEqual({ type: 'json_object' });
+  });
+
+  it('counts an empty reply as a failure', async () => {
+    fetchMock.mockResolvedValueOnce(models(['models/gemini-3.8-flash']));
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ choices: [{ message: { content: '' }, finish_reason: 'length' }] }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    );
+    fetchMock.mockImplementation(async () => reply('{"ok":true}'));
+    const r = await new OpenAICompatibleProvider(gemini).diagnose();
+    expect(r[1].ok).toBe(false);
+    expect(r[1].detail).toMatch(/no text/);
+    expect(r[1].detail).toMatch(/length/);
+    expect(r.slice(2).every((p) => p.ok)).toBe(true);
+  });
+});
