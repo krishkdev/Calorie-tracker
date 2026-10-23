@@ -5,7 +5,7 @@ import { MEAL_LABELS, MEAL_ORDER } from '../lib/meals';
 import { useEntry, useSettings } from '../db/hooks';
 import { addEntry, addFavorite, deleteEntry, normalizeItem, updateEntry } from '../db/repo';
 import type { FoodEntry, FoodItem, MealType } from '../db/types';
-import { guessMeal, todayKey } from '../lib/dates';
+import { guessMeal, safeDayKey, todayKey } from '../lib/dates';
 import { newId } from '../lib/id';
 import { entryTotals } from '../nutrition/totals';
 
@@ -59,7 +59,7 @@ export default function ReviewEntry() {
         (params.get('meal') as MealType | null) ??
         guessMeal(new Date(), settings.mealCutoffs)
       }
-      initialDayKey={incoming.dayKey ?? params.get('day') ?? todayKey()}
+      initialDayKey={safeDayKey(incoming.dayKey ?? params.get('day'))}
       initialNote={incoming.note ?? ''}
       initialItems={initialItems}
       photoThumb={incoming.photoThumb}
@@ -94,7 +94,7 @@ function EntryForm({
   const [saving, setSaving] = useState(false);
 
   const totals = useMemo(() => entryTotals(items), [items]);
-  const valid = items.length > 0 && items.every((i) => i.name.trim().length > 0);
+  const valid = items.length > 0 && items.every((i) => i.name.trim().length > 0 && i.quantity > 0);
 
   async function save() {
     if (!valid || saving) return;
@@ -105,7 +105,7 @@ function EntryForm({
       } else {
         await addEntry({ meal, dayKey, items, note: note || undefined, photoThumb });
       }
-      navigate('/home', { replace: true });
+      navigate(`/home?day=${dayKey}`, { replace: true });
     } finally {
       setSaving(false);
     }
@@ -114,7 +114,7 @@ function EntryForm({
   async function remove() {
     if (!id || !confirm('Delete this entry?')) return;
     await deleteEntry(id);
-    navigate('/home', { replace: true });
+    navigate(`/home?day=${dayKey}`, { replace: true });
   }
 
   async function saveFavorite() {
@@ -168,7 +168,7 @@ function EntryForm({
             className="input"
             value={dayKey}
             max={todayKey()}
-            onChange={(e) => e.target.value && setDayKey(e.target.value)}
+            onChange={(e) => e.target.value && setDayKey(safeDayKey(e.target.value))}
           />
         </label>
       </div>

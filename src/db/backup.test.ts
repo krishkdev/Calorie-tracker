@@ -97,3 +97,45 @@ describe('backup', () => {
     expect(() => validateBackup('nope')).toThrow();
   });
 });
+
+describe('import hardening', () => {
+  it('rebuilds malformed entries and drops unusable rows', async () => {
+    const summary = await importBackup(
+      {
+        app: 'calorie-tracker',
+        schemaVersion: 1,
+        entries: [
+          { id: 'ok', dayKey: '2026-03-03', meal: 'lunch', items: [{ name: 'Soup', kcal: 120 }] },
+          {
+            id: 'no-totals',
+            dayKey: '2026-03-03',
+            meal: 'weird',
+            items: [{ name: 7, kcal: '30' }],
+          },
+          { id: 'bad-day', dayKey: 'garbage', meal: 'lunch', items: [] },
+          { dayKey: '2026-03-03', meal: 'lunch', items: [] },
+        ],
+        weights: [
+          { id: 'w1', dayKey: '2026-03-03', loggedAt: 1, weightKg: 'NaN' },
+          { id: 'w2', dayKey: '2026-03-04', loggedAt: 1, weightKg: 70 },
+        ],
+        favorites: [{ id: 'f', name: 'X', items: [{ name: '', kcal: 1 }, { name: 'Y' }] }],
+        profile: { age: 1 },
+      },
+      'merge',
+    );
+    expect(summary).toEqual({
+      entries: 2,
+      weights: 1,
+      favorites: 1,
+      profile: false,
+      settings: false,
+    });
+    const rows = await db.entries.toArray();
+    const fixed = rows.find((r) => r.id === 'no-totals')!;
+    expect(fixed.totals.kcal).toBe(30);
+    expect(fixed.meal).toBe('snack');
+    expect(fixed.items[0].name).toBe('7');
+    expect((await db.favorites.get('f'))!.items.map((i) => i.name)).toEqual(['Y']);
+  });
+});

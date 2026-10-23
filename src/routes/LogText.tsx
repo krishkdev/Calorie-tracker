@@ -7,6 +7,7 @@ import type { AIError } from '../ai/types';
 import AIErrorCard from '../components/AIErrorCard';
 import { useSettings } from '../db/hooks';
 import type { MealType } from '../db/types';
+import { safeDayKey } from '../lib/dates';
 import type { ReviewState } from './ReviewEntry';
 
 const EXAMPLES = [
@@ -48,7 +49,7 @@ export default function LogText() {
         items: itemsFromAnalysis(result),
         note: text.trim(),
         meal: (params.get('meal') as MealType | null) ?? undefined,
-        dayKey: params.get('day') ?? undefined,
+        dayKey: params.get('day') ? safeDayKey(params.get('day')) : undefined,
       };
       navigate('/entry/new', { state });
     } catch (e) {

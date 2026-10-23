@@ -62,11 +62,19 @@ async function startNative(
     video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
     audio: false,
   });
-  video.srcObject = stream;
-  video.setAttribute('playsinline', 'true');
-  await video.play();
+  let detector: BarcodeDetectorLike;
+  try {
+    video.srcObject = stream;
+    video.setAttribute('playsinline', 'true');
+    await video.play();
+    detector = new Native({ formats: FORMATS });
+  } catch (e) {
+    // Never leave the camera running if setup fails after permission was granted.
+    stream.getTracks().forEach((t) => t.stop());
+    video.srcObject = null;
+    throw e;
+  }
 
-  const detector = new Native({ formats: FORMATS });
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
 

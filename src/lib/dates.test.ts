@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, dayKey, formatDayKey, guessMeal, lastNDayKeys, parseDayKey } from './dates';
+import {
+  addDays,
+  dayKey,
+  formatDayKey,
+  guessMeal,
+  isDayKey,
+  lastNDayKeys,
+  parseDayKey,
+  safeDayKey,
+} from './dates';
 
 describe('dayKey', () => {
   it('uses the local calendar day, not UTC', () => {
@@ -35,5 +44,22 @@ describe('guessMeal', () => {
     expect(guessMeal(new Date(2026, 0, 1, 13))).toBe('lunch');
     expect(guessMeal(new Date(2026, 0, 1, 19))).toBe('dinner');
     expect(guessMeal(new Date(2026, 0, 1, 23))).toBe('snack');
+  });
+});
+
+describe('safeDayKey', () => {
+  it('rejects garbage and clamps future dates', () => {
+    expect(safeDayKey('garbage', '2026-05-10')).toBe('2026-05-10');
+    expect(safeDayKey('2026-02-30', '2026-05-10')).toBe('2026-05-10');
+    expect(safeDayKey('2027-01-01', '2026-05-10')).toBe('2026-05-10');
+    expect(safeDayKey('2026-05-01', '2026-05-10')).toBe('2026-05-01');
+    expect(isDayKey('2026-5-1')).toBe(false);
+  });
+
+  it('local day differs from the UTC day just after midnight in the test timezone (UTC+14)', () => {
+    const d = new Date(2026, 2, 2, 0, 15);
+    expect(d.getTimezoneOffset()).toBe(-840);
+    expect(dayKey(d)).toBe('2026-03-02');
+    expect(d.toISOString().slice(0, 10)).toBe('2026-03-01');
   });
 });

@@ -5,7 +5,7 @@ import { useFavorites, useSettingsLoaded } from '../db/hooks';
 import { DEFAULT_SETTINGS } from '../db/defaults';
 import { addEntry, deleteFavorite, touchFavorite } from '../db/repo';
 import type { Favorite, MealType } from '../db/types';
-import { guessMeal, todayKey } from '../lib/dates';
+import { guessMeal, safeDayKey } from '../lib/dates';
 import { entryTotals } from '../nutrition/totals';
 
 export default function Log() {
@@ -24,12 +24,12 @@ export default function Log() {
 
   async function logFavorite(fav: Favorite) {
     await addEntry({
-      dayKey: params.get('day') ?? todayKey(),
+      dayKey: safeDayKey(params.get('day')),
       meal: (params.get('meal') as MealType | null) ?? guessMeal(new Date(), settings.mealCutoffs),
       items: fav.items.map((i) => ({ ...i, source: 'favorite' as const })),
     });
     await touchFavorite(fav.id);
-    navigate('/home');
+    navigate(`/home?day=${safeDayKey(params.get('day'))}`);
   }
 
   async function removeFavorite(fav: Favorite) {
@@ -120,7 +120,7 @@ export default function Log() {
                   </button>
                   <button
                     type="button"
-                    className="h-8 w-8 rounded-full text-gray-400 hover:text-red-600"
+                    className="-mr-2 flex h-11 w-11 items-center justify-center rounded-full text-gray-400 hover:text-red-600"
                     aria-label={`Remove ${fav.name}`}
                     onClick={() => void removeFavorite(fav)}
                   >

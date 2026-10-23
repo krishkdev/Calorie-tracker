@@ -1,5 +1,8 @@
 import { db } from './db';
-import { mergeSettings } from './repo';
+import { mergeSettings, normalizeItem } from './repo';
+import { isDayKey } from '../lib/dates';
+import { entryTotals } from '../nutrition/totals';
+import type { MealType } from './types';
 import type { Favorite, FoodEntry, Profile, Settings, WeightEntry } from './types';
 
 export const BACKUP_SCHEMA_VERSION = 1;
@@ -95,12 +98,62 @@ export function validateBackup(data: unknown): Backup {
  */
 export async function importBackup(data: unknown, mode: ImportMode): Promise<ImportSummary> {
   const backup = validateBackup(data);
-  const entries = await Promise.all(
-    backup.entries.map(async ({ photoThumb, ...rest }) => ({
-      ...rest,
-      photoThumb: photoThumb ? await base64ToBlob(photoThumb) : undefined,
-    })),
+  // Rebuild every record from scratch so a hand-edited or foreign file can
+  // never store a row that later crashes a screen.
+  const MEALS: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
+  const entries: FoodEntry[] = [];
+  for (const raw of backup.entries as Partial<FoodEntry & { photoThumb: string }>[]) {
+    if (!raw || typeof raw.id !== 'string' || !isDayKey(raw.dayKey)) continue;
+    const rawItems = Array.isArray(raw.items) ? raw.items : [];
+    const items = rawItems
+      .filter((i) => i && typeof i === 'object')
+      .map((i) => normalizeItem({ ...i, name: String(i.name ?? '') }))
+      .filter((i) => i.name);
+    const now = Date.now();
+    entries.push({
+      id: raw.id,
+      dayKey: raw.dayKey,
+      loggedAt: Number.isFinite(raw.loggedAt) ? (raw.loggedAt as number) : now,
+      meal: MEALS.includes(raw.meal as MealType) ? (raw.meal as MealType) : 'snack',
+      items,
+      note: typeof raw.note === 'string' ? raw.note : undefined,
+      photoThumb:
+        typeof raw.photoThumb === 'string' && raw.photoThumb.startsWith('data:')
+          ? await base64ToBlob(raw.photoThumb)
+          : undefined,
+      totals: entryTotals(items),
+      createdAt: Number.isFinite(raw.createdAt) ? (raw.createdAt as number) : now,
+      updatedAt: Number.isFinite(raw.updatedAt) ? (raw.updatedAt as number) : now,
+    });
+  }
+  const weights: WeightEntry[] = backup.weights.filter(
+    (w): w is WeightEntry =>
+      Boolean(w) &&
+      typeof w.id === 'string' &&
+      isDayKey(w.dayKey) &&
+      Number.isFinite(w.weightKg) &&
+      w.weightKg > 0,
   );
+  const favorites: Favorite[] = backup.favorites
+    .filter((f) => f && typeof f.id === 'string' && typeof f.name === 'string')
+    .map((f) => ({
+      ...f,
+      items: (Array.isArray(f.items) ? f.items : [])
+        .filter((i) => i && typeof i === 'object')
+        .map((i) => normalizeItem({ ...i, name: String(i.name ?? '') }))
+        .filter((i) => i.name),
+      useCount: Number.isFinite(f.useCount) ? f.useCount : 0,
+      lastUsedAt: Number.isFinite(f.lastUsedAt) ? f.lastUsedAt : Date.now(),
+      createdAt: Number.isFinite(f.createdAt) ? f.createdAt : Date.now(),
+    }));
+  const profile =
+    backup.profile &&
+    typeof backup.profile === 'object' &&
+    backup.profile.targets &&
+    Number.isFinite(backup.profile.targets.kcal) &&
+    Number.isFinite(backup.profile.weightKg)
+      ? backup.profile
+      : null;
 
   await db.transaction(
     'rw',
@@ -114,7 +167,7 @@ export async function importBackup(data: unknown, mode: ImportMode): Promise<Imp
           db.favorites.clear(),
         ]);
       }
-      if (backup.profile) await db.profile.put({ ...backup.profile, id: 'me' });
+      if (profile) await db.profile.put({ ...profile, id: 'me' });
       if (backup.settings) {
         const current = await db.settings.get('app');
         const incoming = mergeSettings(backup.settings);
@@ -124,21 +177,21 @@ export async function importBackup(data: unknown, mode: ImportMode): Promise<Imp
         await db.settings.put(incoming);
       }
       await db.entries.bulkPut(entries);
-      for (const w of backup.weights) {
+      for (const w of weights) {
         // Unique index on dayKey: drop an existing row for that day before putting.
         const existing = await db.weights.where('dayKey').equals(w.dayKey).first();
         if (existing && existing.id !== w.id) await db.weights.delete(existing.id);
         await db.weights.put(w);
       }
-      await db.favorites.bulkPut(backup.favorites);
+      await db.favorites.bulkPut(favorites);
     },
   );
 
   return {
     entries: entries.length,
-    weights: backup.weights.length,
-    favorites: backup.favorites.length,
-    profile: Boolean(backup.profile),
+    weights: weights.length,
+    favorites: favorites.length,
+    profile: Boolean(profile),
     settings: Boolean(backup.settings),
   };
 }

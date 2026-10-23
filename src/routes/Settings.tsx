@@ -13,6 +13,7 @@ import {
   computeTargets,
   macrosFromPercents,
   percentsFromMacros,
+  type MacroPercents,
 } from '../nutrition/tdee';
 import { HeightInput, Segmented, WeightInput } from './Onboarding';
 
@@ -142,6 +143,9 @@ function GoalsForm({ units, profile }: { units: Units; profile: Profile }) {
   const [goal, setGoal] = useState<GoalType>(profile.goal);
   const [rate, setRate] = useState(profile.rateKgPerWeek || 0.5);
   const [targets, setTargets] = useState<Macros>(profile.targets);
+  // Percentages are state (not re-derived from rounded grams) so edits don't drift.
+  const [pct, setPct] = useState<MacroPercents>(() => percentsFromMacros(profile.targets));
+  const [kcalDraft, setKcalDraft] = useState(String(profile.targets.kcal));
   const [dirtyTargets, setDirtyTargets] = useState(profile.targetsOverridden);
   const [saved, setSaved] = useState(false);
 
@@ -154,11 +158,24 @@ function GoalsForm({ units, profile }: { units: Units; profile: Profile }) {
     goal,
     rateKgPerWeek: goal === 'maintain' ? 0 : rate,
   });
-  const pct = percentsFromMacros(targets);
+  function applyTargets(next: Macros) {
+    setTargets(next);
+    setPct(percentsFromMacros(next));
+    setKcalDraft(String(next.kcal));
+  }
 
   function recompute() {
-    setTargets(computed.targets);
+    applyTargets(computed.targets);
     setDirtyTargets(false);
+  }
+
+  function setKcal(raw: string) {
+    setKcalDraft(raw);
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) {
+      setTargets(macrosFromPercents(Math.round(n), pct));
+      setDirtyTargets(true);
+    }
   }
 
   function setPercent(key: 'protein' | 'carbs' | 'fat', value: number) {
@@ -168,11 +185,14 @@ function GoalsForm({ units, profile }: { units: Units; profile: Profile }) {
     const otherSum = next[others[0]] + next[others[1]] || 1;
     next[others[0]] = Math.round((next[others[0]] / otherSum) * rest);
     next[others[1]] = rest - next[others[0]];
+    setPct(next);
     setTargets(macrosFromPercents(targets.kcal, next));
     setDirtyTargets(true);
   }
 
   async function save() {
+    // Targets follow the profile unless the user edited them by hand.
+    const nextTargets = dirtyTargets ? targets : computed.targets;
     await updateProfile({
       sex,
       age,
@@ -181,9 +201,10 @@ function GoalsForm({ units, profile }: { units: Units; profile: Profile }) {
       activity,
       goal,
       rateKgPerWeek: goal === 'maintain' ? 0 : rate,
-      targets,
+      targets: nextTargets,
       targetsOverridden: dirtyTargets,
     });
+    applyTargets(nextTargets);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   }
@@ -261,11 +282,10 @@ function GoalsForm({ units, profile }: { units: Units; profile: Profile }) {
             type="number"
             inputMode="numeric"
             className="input"
-            value={targets.kcal}
-            onChange={(e) => {
-              setTargets(macrosFromPercents(Number(e.target.value), pct));
-              setDirtyTargets(true);
-            }}
+            value={kcalDraft}
+            min={800}
+            onChange={(e) => setKcal(e.target.value)}
+            onBlur={() => setKcalDraft(String(targets.kcal))}
           />
         </label>
         <div className="mt-3 space-y-2">
@@ -296,7 +316,8 @@ function GoalsForm({ units, profile }: { units: Units; profile: Profile }) {
         </div>
         {dirtyTargets && (
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            Targets were edited by hand; profile changes won't change them until you tap Recompute.
+            Targets were edited by hand, so saving the profile keeps them. Tap Recompute to derive
+            them from your profile again.
           </p>
         )}
       </div>

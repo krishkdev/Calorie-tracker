@@ -13,11 +13,11 @@ describe('presets', () => {
     expect(isPresetId('openai')).toBe(true);
   });
 
-  it('builds a config that keeps the key when switching', () => {
-    const c = configFromPreset('openai', 'sk-x');
+  it('builds a fresh config for a preset (the form starts with an empty key)', () => {
+    const c = configFromPreset('openai');
     expect(c).toMatchObject({
       preset: 'openai',
-      apiKey: 'sk-x',
+      apiKey: '',
       model: 'gpt-6-luna',
       supportsVision: true,
     });

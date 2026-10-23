@@ -1,5 +1,5 @@
 import Icon from '../components/Icon';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { createProvider } from '../ai';
 import { downscaleImage } from '../ai/image';
@@ -9,6 +9,7 @@ import type { AIError } from '../ai/types';
 import AIErrorCard from '../components/AIErrorCard';
 import { useSettings } from '../db/hooks';
 import type { MealType } from '../db/types';
+import { safeDayKey } from '../lib/dates';
 import type { ReviewState } from './ReviewEntry';
 
 export default function LogPhoto() {
@@ -23,6 +24,14 @@ export default function LogPhoto() {
   const [notes, setNotes] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
   const vision = settings.provider.supportsVision;
+
+  // Release the preview's object URL when leaving the screen.
+  useEffect(
+    () => () => {
+      if (preview) URL.revokeObjectURL(preview);
+    },
+    [preview],
+  );
 
   function pick(f: File | null) {
     setError(null);
@@ -63,7 +72,7 @@ export default function LogPhoto() {
         note: context.trim() || undefined,
         photoThumb: thumb.blob,
         meal: (params.get('meal') as MealType | null) ?? undefined,
-        dayKey: params.get('day') ?? undefined,
+        dayKey: params.get('day') ? safeDayKey(params.get('day')) : undefined,
       };
       navigate('/entry/new', { state });
     } catch (e) {
@@ -123,7 +132,6 @@ export default function LogPhoto() {
             <input
               type="file"
               accept="image/*"
-              capture="environment"
               className="sr-only"
               onChange={(e) => pick(e.target.files?.[0] ?? null)}
             />

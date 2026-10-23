@@ -1,4 +1,4 @@
-import { addDays, formatDayKey, LOCALE, parseDayKey, todayKey } from '../lib/dates';
+import { addDays, formatDayKey, LOCALE, parseDayKey, safeDayKey, todayKey } from '../lib/dates';
 import Icon from './Icon';
 
 interface Props {
@@ -24,7 +24,7 @@ export default function DateNav({ dayKey, onChange }: Props) {
               value={dayKey}
               max={today}
               aria-label="Pick a date"
-              onChange={(e) => e.target.value && onChange(e.target.value)}
+              onChange={(e) => e.target.value && onChange(safeDayKey(e.target.value))}
             />
           </label>
         </div>

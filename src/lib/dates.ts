@@ -19,6 +19,21 @@ export function todayKey(): string {
   return dayKey(new Date());
 }
 
+/** True for a well-formed 'YYYY-MM-DD' that round-trips through the local calendar. */
+export function isDayKey(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  return dayKey(parseDayKey(value)) === value;
+}
+
+/**
+ * Sanitise a day key from a URL or input: invalid values become today and
+ * future dates are clamped to today (you can't log a meal you haven't eaten).
+ */
+export function safeDayKey(value: unknown, today: string = todayKey()): string {
+  if (!isDayKey(value)) return today;
+  return value > today ? today : value;
+}
+
 /** Local midnight for a day key. */
 export function parseDayKey(key: string): Date {
   const [y, m, d] = key.split('-').map(Number);
