@@ -1,7 +1,13 @@
 # Calorie Tracker
 
+[![CI](https://github.com/krishkdev/Calorie-tracker/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/krishkdev/Calorie-tracker/actions/workflows/ci.yml)
+[![Vercel](https://github.com/krishkdev/Calorie-tracker/actions/workflows/vercel.yml/badge.svg?branch=main)](https://github.com/krishkdev/Calorie-tracker/actions/workflows/vercel.yml)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+
 A free, open-source calorie tracker in the spirit of Cal AI, with no subscription.
 You bring your own AI key. Your data stays on your device.
+
+**Live app:** https://calorie-tracker-six-navy.vercel.app
 
 - **Log food four ways.** Describe it in words, snap a photo, scan a barcode, or type the numbers. The AI returns items with calories and macros that you review and edit before saving.
 - **Bring your own AI.** Works with any OpenAI-compatible API: DeepSeek, OpenRouter (free vision models available), Google Gemini, OpenAI, Ollama, LM Studio, or a custom URL. Each option says clearly whether it can read photos.
@@ -12,7 +18,7 @@ You bring your own AI key. Your data stays on your device.
 
 ## Try it
 
-Deploy your own copy in two minutes with GitHub Pages (see below), or run it locally:
+Use the live app above, deploy your own copy (see below), or run it locally:
 
 ```bash
 npm install
