@@ -58,4 +58,4 @@ git switch -c feature/my-change
 git push -u origin feature/my-change
 ```
 
-Open a pull request against `main`. Wait for **CI** and **Vercel Preview** (the preview URL appears as a comment), then merge. Production deploys from the merge commit.
+Open a pull request against `main`. Wait for **CI** and **Vercel Preview** (the preview URL appears as a comment), then merge. Production deploys from the merge commit; the production URL is printed in the **Vercel Production** job summary and is also the project's stable alias on Vercel.
