@@ -3,8 +3,9 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { fetchProduct, ProductNotFoundError } from '../barcode/openFoodFacts';
 import BarcodeScanner from '../components/BarcodeScanner';
 import ServingPicker from '../components/ServingPicker';
-import type { FoodItem, MealType, ProductInfo } from '../db/types';
+import type { FoodItem, ProductInfo } from '../db/types';
 import { safeDayKey } from '../lib/dates';
+import { mealFromParam } from '../lib/meals';
 import type { ReviewState } from './ReviewEntry';
 
 export default function LogBarcode() {
@@ -45,7 +46,7 @@ export default function LogBarcode() {
   function add(item: Partial<FoodItem> & { name: string }) {
     const state: ReviewState = {
       items: [item],
-      meal: (params.get('meal') as MealType | null) ?? undefined,
+      meal: mealFromParam(params.get('meal')),
       dayKey: params.get('day') ? safeDayKey(params.get('day')) : undefined,
     };
     navigate('/entry/new', { state });

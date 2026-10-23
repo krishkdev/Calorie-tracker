@@ -1,7 +1,15 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { exportBackup, importBackup, validateBackup } from './backup';
 import { db } from './db';
-import { addEntry, addFavorite, saveProfile, updateSettings, upsertWeight } from './repo';
+import { DEFAULT_SETTINGS } from './defaults';
+import {
+  addEntry,
+  addFavorite,
+  mergeSettings,
+  saveProfile,
+  updateSettings,
+  upsertWeight,
+} from './repo';
 
 const egg = {
   name: 'Egg',
@@ -137,5 +145,104 @@ describe('import hardening', () => {
     expect(fixed.meal).toBe('snack');
     expect(fixed.items[0].name).toBe('7');
     expect((await db.favorites.get('f'))!.items.map((i) => i.name)).toEqual(['Y']);
+  });
+});
+
+describe('importBackup hardening', () => {
+  const entry = (extra: Record<string, unknown> = {}) => ({
+    id: 'e1',
+    dayKey: '2024-01-02',
+    loggedAt: 1,
+    meal: 'lunch',
+    items: [{ id: 'i1', name: 'Rice', portion: 150, kcal: 200 }],
+    totals: { kcal: 200, proteinG: 0, carbsG: 0, fatG: 0 },
+    createdAt: 1,
+    updatedAt: 1,
+    ...extra,
+  });
+  const file = (over: Record<string, unknown>) => ({
+    app: 'calorie-tracker',
+    schemaVersion: 1,
+    exportedAt: '',
+    profile: null,
+    settings: null,
+    entries: [],
+    weights: [],
+    favorites: [],
+    ...over,
+  });
+
+  it('coerces a numeric portion instead of aborting', async () => {
+    const s = await importBackup(file({ entries: [entry()] }), 'replace');
+    expect(s.entries).toBe(1);
+    expect((await db.entries.get('e1'))?.items[0].portion).toBe('150');
+  });
+
+  it('skips a corrupt thumbnail but keeps the entry', async () => {
+    await importBackup(
+      file({ entries: [entry({ photoThumb: 'data:image/jpeg;base64,@@@' })] }),
+      'replace',
+    );
+    expect((await db.entries.get('e1'))?.photoThumb).toBeUndefined();
+  });
+
+  it('merge keeps an existing thumbnail when the backup has none', async () => {
+    await importBackup(file({ entries: [entry()] }), 'replace');
+    await db.entries.update('e1', { photoThumb: new Blob(['x'], { type: 'image/jpeg' }) });
+    await importBackup(file({ entries: [entry()] }), 'merge');
+    // fake-indexeddb stores Blobs as plain objects; present is what matters here.
+    expect((await db.entries.get('e1'))?.photoThumb).toBeDefined();
+  });
+
+  it('drops an implausible profile', async () => {
+    const s = await importBackup(
+      file({ profile: { targets: { kcal: 2000 }, weightKg: 80, activity: 'couch', sex: 'x' } }),
+      'replace',
+    );
+    expect(s.profile).toBe(false);
+    expect(await db.profile.get('me')).toBeUndefined();
+  });
+
+  it('skips future days and counts one weight per day', async () => {
+    const s = await importBackup(
+      file({
+        entries: [entry({ dayKey: '2099-01-01' })],
+        weights: [
+          { id: 'w1', dayKey: '2024-01-01', weightKg: 70, loggedAt: 1 },
+          { id: 'w2', dayKey: '2024-01-01', weightKg: 71, loggedAt: 2 },
+          { id: 'w3', dayKey: '2099-01-01', weightKg: 72, loggedAt: 3 },
+        ],
+      }),
+      'replace',
+    );
+    expect(s.entries).toBe(0);
+    expect(s.weights).toBe(1);
+    expect((await db.weights.toArray()).map((w) => w.weightKg)).toEqual([71]);
+  });
+
+  it('only carries the current key over for the same preset', async () => {
+    await db.settings.put(
+      mergeSettings({
+        provider: { ...DEFAULT_SETTINGS.provider, preset: 'gemini', apiKey: 'AIza-x' },
+      }),
+    );
+    await importBackup(
+      file({ settings: { provider: { preset: 'openai', apiKey: '', model: 'gpt-6-luna' } } }),
+      'merge',
+    );
+    expect((await db.settings.get('app'))?.provider.apiKey).toBe('');
+  });
+
+  it('sanitises units, theme and meal cutoffs', () => {
+    const s = mergeSettings({
+      units: 'lbs' as never,
+      theme: null as never,
+      mealCutoffs: { breakfast: 'x' as never, lunch: 14, dinner: 99 } as never,
+    });
+    expect(s.units).toBe('metric');
+    expect(s.theme).toBe('system');
+    expect(s.mealCutoffs.lunch).toBe(14);
+    expect(s.mealCutoffs.breakfast).toBe(DEFAULT_SETTINGS.mealCutoffs.breakfast);
+    expect(s.mealCutoffs.dinner).toBe(DEFAULT_SETTINGS.mealCutoffs.dinner);
   });
 });

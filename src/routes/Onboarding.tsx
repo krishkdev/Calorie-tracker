@@ -1,10 +1,16 @@
 import Icon from '../components/Icon';
+import NumberInput from '../components/NumberInput';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../db/hooks';
 import { saveProfile, updateSettings } from '../db/repo';
 import type { Activity, GoalType, Sex, Units } from '../db/types';
-import { ACTIVITY_LABELS, ACTIVITY_MULTIPLIERS, computeTargets } from '../nutrition/tdee';
+import {
+  ACTIVITY_LABELS,
+  ACTIVITY_MULTIPLIERS,
+  computeTargets,
+  isPlausibleBody,
+} from '../nutrition/tdee';
 import { cmToFtIn, ftInToCm, lbToKg, kgToLb } from '../nutrition/units';
 
 const RATES: { value: number; label: string }[] = [
@@ -42,13 +48,7 @@ export default function Onboarding() {
     [sex, age, heightCm, weightKg, activity, goal, rate],
   );
 
-  const bodyValid =
-    age >= 10 &&
-    age <= 120 &&
-    heightCm >= 100 &&
-    heightCm <= 250 &&
-    weightKg >= 25 &&
-    weightKg <= 400;
+  const bodyValid = isPlausibleBody({ age, heightCm, weightKg });
 
   async function finish() {
     setSaving(true);
@@ -121,14 +121,13 @@ export default function Onboarding() {
           />
           <label className="block">
             <span className="label">Age</span>
-            <input
-              type="number"
+            <NumberInput
               inputMode="numeric"
               className="input"
               value={age}
               min={10}
               max={120}
-              onChange={(e) => setAge(Number(e.target.value))}
+              onChange={setAge}
             />
           </label>
           <HeightInput units={units} heightCm={heightCm} onChange={setHeightCm} />
@@ -297,28 +296,26 @@ export function HeightInput({
         <span className="label">Height</span>
         <div className="grid grid-cols-2 gap-2">
           <label className="block">
-            <input
-              type="number"
+            <NumberInput
               inputMode="numeric"
               className="input"
               value={ft}
               min={3}
               max={8}
               aria-label="Feet"
-              onChange={(e) => onChange(ftInToCm(Number(e.target.value), inches))}
+              onChange={(v) => onChange(ftInToCm(v, inches))}
             />
             <span className="text-xs text-gray-500">ft</span>
           </label>
           <label className="block">
-            <input
-              type="number"
+            <NumberInput
               inputMode="numeric"
               className="input"
               value={inches}
               min={0}
               max={11}
               aria-label="Inches"
-              onChange={(e) => onChange(ftInToCm(ft, Number(e.target.value)))}
+              onChange={(v) => onChange(ftInToCm(ft, v))}
             />
             <span className="text-xs text-gray-500">in</span>
           </label>
@@ -329,14 +326,13 @@ export function HeightInput({
   return (
     <label className="block">
       <span className="label">Height (cm)</span>
-      <input
-        type="number"
+      <NumberInput
         inputMode="numeric"
         className="input"
         value={Math.round(heightCm)}
         min={100}
         max={250}
-        onChange={(e) => onChange(Number(e.target.value))}
+        onChange={onChange}
       />
     </label>
   );
@@ -356,16 +352,13 @@ export function WeightInput({
   return (
     <label className="block">
       <span className="label">Weight ({imperial ? 'lb' : 'kg'})</span>
-      <input
-        type="number"
+      <NumberInput
         inputMode="decimal"
         step="0.1"
+        min={0}
         className="input"
         value={shown}
-        onChange={(e) => {
-          const v = Number(e.target.value);
-          onChange(imperial ? lbToKg(v) : v);
-        }}
+        onChange={(v) => onChange(imperial ? lbToKg(v) : v)}
       />
     </label>
   );

@@ -13,6 +13,7 @@ import type {
   WeightEntry,
 } from './types';
 import { newId } from '../lib/id';
+import { isMealType } from '../lib/meals';
 import { entryTotals } from '../nutrition/totals';
 
 // ---------- Profile ----------
@@ -44,12 +45,19 @@ export async function getSettings(): Promise<Settings> {
  * edited backup (wrong types, a preset that no longer exists).
  */
 export function mergeSettings(s: Partial<Settings>): Settings {
+  const cutoffs = { ...DEFAULT_SETTINGS.mealCutoffs };
+  for (const key of Object.keys(cutoffs) as (keyof typeof cutoffs)[]) {
+    const v = Number(s.mealCutoffs?.[key]);
+    if (Number.isInteger(v) && v >= 0 && v <= 23) cutoffs[key] = v;
+  }
   return {
     ...DEFAULT_SETTINGS,
     ...s,
     id: 'app',
+    units: s.units === 'imperial' ? 'imperial' : 'metric',
+    theme: s.theme === 'light' || s.theme === 'dark' ? s.theme : 'system',
     provider: sanitizeProvider(s.provider),
-    mealCutoffs: { ...DEFAULT_SETTINGS.mealCutoffs, ...(s.mealCutoffs ?? {}) },
+    mealCutoffs: cutoffs,
   };
 }
 
@@ -98,7 +106,7 @@ export async function addEntry(input: NewEntry): Promise<FoodEntry> {
     id: newId(),
     dayKey: input.dayKey,
     loggedAt: input.loggedAt ?? now,
-    meal: input.meal,
+    meal: isMealType(input.meal) ? input.meal : 'snack',
     items,
     note: input.note,
     photoThumb: input.photoThumb,
@@ -122,6 +130,7 @@ export async function updateEntry(
   await db.entries.put({
     ...current,
     ...patch,
+    meal: isMealType(patch.meal ?? current.meal) ? (patch.meal ?? current.meal) : 'snack',
     items,
     totals: entryTotals(items),
     updatedAt: Date.now(),
@@ -145,19 +154,26 @@ export function entriesBetween(fromKey: string, toKey: string): Promise<FoodEntr
   return db.entries.where('dayKey').between(fromKey, toKey, true, true).toArray();
 }
 
+const ITEM_SOURCES: FoodItem['source'][] = ['ai', 'barcode', 'manual', 'favorite'];
+
 export function normalizeItem(item: Partial<FoodItem> & { name: string }): FoodItem {
   return {
     id: typeof item.id === 'string' && item.id ? item.id : newId(),
     name: String(item.name ?? '').trim(),
-    portion: (item.portion ?? '').trim(),
+    portion: String(item.portion ?? '').trim(),
     quantity: Math.max(0, finite(item.quantity, 1)),
     kcal: Math.max(0, finite(item.kcal, 0)),
     proteinG: Math.max(0, finite(item.proteinG, 0)),
     carbsG: Math.max(0, finite(item.carbsG, 0)),
     fatG: Math.max(0, finite(item.fatG, 0)),
-    confidence: item.confidence,
-    source: item.source ?? 'manual',
-    barcode: item.barcode,
+    confidence:
+      typeof item.confidence === 'number' && Number.isFinite(item.confidence)
+        ? Math.min(1, Math.max(0, item.confidence))
+        : undefined,
+    source: ITEM_SOURCES.includes(item.source as FoodItem['source'])
+      ? (item.source as FoodItem['source'])
+      : 'manual',
+    barcode: typeof item.barcode === 'string' && item.barcode ? item.barcode : undefined,
   };
 }
 
@@ -225,11 +241,13 @@ export function listFavorites(limit = 50): Promise<Favorite[]> {
 // ---------- Product cache ----------
 
 const PRODUCT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/** "Not found" is remembered briefly only: the user may add the product to OFF and rescan. */
+const MISSING_TTL_MS = 60 * 60 * 1000;
 
 export async function getCachedProduct(barcode: string): Promise<CachedProduct | undefined> {
   const c = await db.productCache.get(barcode);
   if (!c) return undefined;
-  if (Date.now() - c.fetchedAt > PRODUCT_TTL_MS) return undefined;
+  if (Date.now() - c.fetchedAt > (c.product ? PRODUCT_TTL_MS : MISSING_TTL_MS)) return undefined;
   return c;
 }
 

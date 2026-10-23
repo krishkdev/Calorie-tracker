@@ -1,5 +1,13 @@
 import { useRef, useState } from 'react';
-import { backupFilename, exportBackup, importBackup, type ImportSummary } from '../db/backup';
+import {
+  backupFilename,
+  exportBackup,
+  importBackup,
+  type ImportMode,
+  type ImportSummary,
+} from '../db/backup';
+import { getSettings } from '../db/repo';
+import { applyTheme } from '../lib/theme';
 
 /** Export / import of the whole local database as a JSON file. */
 export default function DataSection() {
@@ -33,23 +41,35 @@ export default function DataSection() {
     }
   }
 
-  async function doImport(file: File) {
+  // The backup is parsed on pick, then the user chooses what to do with it.
+  const [pending, setPending] = useState<{ name: string; data: unknown } | null>(null);
+
+  async function pickImport(file: File) {
+    setMessage(null);
+    try {
+      setPending({ name: file.name, data: JSON.parse(await file.text()) as unknown });
+    } catch {
+      setMessage('That file is not valid JSON.');
+    } finally {
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  }
+
+  async function doImport(mode: ImportMode) {
+    if (!pending) return;
     setBusy(true);
     setMessage(null);
     try {
-      const data: unknown = JSON.parse(await file.text());
-      const replace = confirm(
-        'Replace everything on this device with the backup?\n\nOK = replace (current data is deleted)\nCancel = merge (keep current data, add the backup)',
-      );
-      const s: ImportSummary = await importBackup(data, replace ? 'replace' : 'merge');
+      const s: ImportSummary = await importBackup(pending.data, mode);
+      applyTheme((await getSettings()).theme);
       setMessage(
         `Imported ${s.entries} entries, ${s.weights} weights and ${s.favorites} favorites${s.profile ? ', profile' : ''}${s.settings ? ', settings' : ''}.`,
       );
+      setPending(null);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Import failed.');
     } finally {
       setBusy(false);
-      if (fileRef.current) fileRef.current.value = '';
     }
   }
 
@@ -100,10 +120,47 @@ export default function DataSection() {
           aria-label="Backup file"
           onChange={(e) => {
             const f = e.target.files?.[0];
-            if (f) void doImport(f);
+            if (f) void pickImport(f);
           }}
         />
       </div>
+      {pending && (
+        <div className="rounded-xl bg-gray-100 p-3 text-sm dark:bg-gray-800" role="group">
+          <p className="mb-2">
+            Import <span className="font-medium">{pending.name}</span>?
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="btn btn-secondary flex-1"
+              disabled={busy}
+              onClick={() => void doImport('merge')}
+            >
+              Merge into my data
+            </button>
+            <button
+              type="button"
+              className="btn btn-danger flex-1"
+              disabled={busy}
+              onClick={() => void doImport('replace')}
+            >
+              Replace everything
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary flex-1"
+              disabled={busy}
+              onClick={() => setPending(null)}
+            >
+              Cancel
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-gray-500">
+            Merge keeps what is on this device and adds the backup. Replace deletes everything here
+            first.
+          </p>
+        </div>
+      )}
       {message && (
         <p className="rounded-xl bg-gray-100 px-3 py-2 text-sm dark:bg-gray-800" role="status">
           {message}

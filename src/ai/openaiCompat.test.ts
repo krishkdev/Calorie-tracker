@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProviderConfig } from '../db/types';
-import { errorDetail, OpenAICompatibleProvider, parseModelIds } from './openaiCompat';
+import {
+  errorDetail,
+  OpenAICompatibleProvider,
+  parseModelIds,
+  suggestModels,
+} from './openaiCompat';
+import { getPreset } from './presets';
 import { AIError } from './types';
 
 const gemini: ProviderConfig = {
@@ -147,9 +153,32 @@ describe('OpenAICompatibleProvider.analyze', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it('does not retry a 400 for presets without extras', async () => {
+  it('retries an OpenAI 400 with reasoning-model parameters', async () => {
     fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ error: { message: 'Invalid request.' } }), {
+      new Response(
+        JSON.stringify({
+          error: {
+            message: "Unsupported parameter: 'max_tokens' is not supported with this model.",
+          },
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    fetchMock.mockResolvedValueOnce(reply(good));
+    const r = await new OpenAICompatibleProvider(openai).analyze({
+      text: '2 eggs',
+      units: 'metric',
+    });
+    expect(r.items[0].name).toBe('Egg');
+    const second = JSON.parse((fetchMock.mock.calls[1] as [string, RequestInit])[1].body as string);
+    expect(second.max_tokens).toBeUndefined();
+    expect(second.temperature).toBeUndefined();
+    expect(second.max_completion_tokens).toBeGreaterThanOrEqual(2048);
+  });
+
+  it('does not retry a 400 about JSON mode', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: { message: 'response_format is not supported' } }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       }),
@@ -158,6 +187,41 @@ describe('OpenAICompatibleProvider.analyze', () => {
       new OpenAICompatibleProvider(openai).analyze({ text: '2 eggs', units: 'metric' }),
     ).rejects.toMatchObject({ status: 400 });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses to start when the signal is already aborted', async () => {
+    const ac = new AbortController();
+    ac.abort();
+    await expect(
+      new OpenAICompatibleProvider(gemini).analyze(
+        { text: 'x', units: 'metric' },
+        { signal: ac.signal },
+      ),
+    ).rejects.toMatchObject({ code: 'aborted' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps HTML error pages out of the message', () => {
+    expect(
+      errorDetail('<!DOCTYPE html><html><head><title>502 Bad Gateway</title></head></html>'),
+    ).toBe('502 Bad Gateway');
+    expect(errorDetail('<html><body>oops</body></html>')).toBe('');
+  });
+
+  it('suggests chat models with the preset favourites first', () => {
+    const ids = [
+      'gemini-2.5-flash-preview-tts',
+      'gemini-embedding-001',
+      'gemini-3.8-flash',
+      'gemini-2.5-pro',
+      'gemini-3.5-flash-lite',
+      'imagen-4',
+    ];
+    expect(suggestModels(ids, getPreset('gemini'))).toEqual([
+      'gemini-3.5-flash-lite',
+      'gemini-3.8-flash',
+      'gemini-2.5-pro',
+    ]);
   });
 
   it('omits json mode when disabled, skips reasoning for OpenAI, and sends image parts', async () => {

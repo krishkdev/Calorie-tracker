@@ -1,12 +1,14 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import type { AIError } from '../ai/types';
 
 export default function AIErrorCard({ error }: { error: AIError }) {
+  const { search } = useLocation(); // keep ?meal=&day= when switching to text
   const settingsLink = [
     'no_api_key',
     'unauthorized',
     'no_vision',
     'network_or_cors',
+    'timeout',
     'http',
   ].includes(error.code);
   return (
@@ -23,7 +25,7 @@ export default function AIErrorCard({ error }: { error: AIError }) {
       {error.code === 'no_vision' && (
         <>
           {' · '}
-          <Link to="/log/text" className="mt-1 inline-block font-medium underline">
+          <Link to={`/log/text${search}`} className="mt-1 inline-block font-medium underline">
             Describe it instead
           </Link>
         </>

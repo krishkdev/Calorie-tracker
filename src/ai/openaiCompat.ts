@@ -1,7 +1,7 @@
 import type { ProviderConfig } from '../db/types';
 import { buildUserMessage, JSON_RETRY_MESSAGE, SYSTEM_PROMPT } from './prompt';
 import { parseAnalysis } from './parse';
-import { getPreset, isProviderConfigured } from './presets';
+import { getPreset, isProviderConfigured, type Preset } from './presets';
 import {
   AIError,
   type AnalysisInput,
@@ -130,14 +130,10 @@ export class OpenAICompatibleProvider implements FoodAnalysisProvider {
         return { ok: true, model, message: `Connected. Your key works and ${model} is available.` };
       }
       const preset = getPreset(this.config.preset);
-      const related = ids.filter((id) => id.includes(preset.modelFilter)).slice(0, 6);
       return {
         ok: false,
         model,
-        message: `Your key works, but "${model}" is not in its model list. Try one of: ${(related.length
-          ? related
-          : ids.slice(0, 6)
-        ).join(', ')}.`,
+        message: `Your key works, but "${model}" is not in its model list. Try one of: ${suggestModels(ids, preset).join(', ')}.`,
       };
     } catch (e) {
       return { ok: false, model, message: toAIError(e).message };
@@ -251,19 +247,25 @@ export class OpenAICompatibleProvider implements FoodAnalysisProvider {
       let r = await this.request('/chat/completions', init, signal, ANALYZE_TIMEOUT_MS);
       if (RETRY_STATUSES.has(r.status) && !signal?.aborted) {
         await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+        if (signal?.aborted) throw new AIError('aborted', 'Cancelled.');
         r = await this.request('/chat/completions', init, signal, ANALYZE_TIMEOUT_MS);
       }
       return r;
     };
 
     let res = await send(body);
-    // A 400 with the preset's extra options present usually means this model does
-    // not accept one of them (e.g. an unsupported thinking level). Retry once with
-    // the plain request so an option mismatch never blocks logging.
-    if (res.status === 400 && preset.extraBody && !signal?.aborted) {
+    // A 400 usually means this model does not accept one of the optional fields
+    // (a thinking level, temperature on OpenAI reasoning models, max_tokens on
+    // models that want max_completion_tokens). Retry once with the plain
+    // request so an option mismatch never blocks logging.
+    if (res.status === 400 && !signal?.aborted) {
       const err = httpError(res.status, await res.text(), this.config);
-      if (err.code === 'unauthorized') throw err;
-      for (const key of Object.keys(preset.extraBody)) delete body[key];
+      if (err.code === 'unauthorized' || /response_format|json_object/i.test(err.raw ?? ''))
+        throw err;
+      for (const key of Object.keys(preset.extraBody ?? {})) delete body[key];
+      delete body.temperature;
+      delete body.max_tokens;
+      body.max_completion_tokens = MAX_TOKENS;
       res = await send(body);
     }
     const text = await res.text();
@@ -302,6 +304,7 @@ export class OpenAICompatibleProvider implements FoodAnalysisProvider {
     signal: AbortSignal | undefined,
     timeoutMs: number,
   ): Promise<Response> {
+    if (signal?.aborted) throw new AIError('aborted', 'Cancelled.');
     const { apiKey, baseUrl, proxyUrl } = this.config;
     const headers: Record<string, string> = {};
     if (init.body) headers['Content-Type'] = 'application/json';
@@ -322,7 +325,7 @@ export class OpenAICompatibleProvider implements FoodAnalysisProvider {
       if (signal?.aborted) throw new AIError('aborted', 'Cancelled.');
       if (controller.signal.aborted) {
         throw new AIError(
-          'aborted',
+          'timeout',
           `No reply from ${getPreset(this.config.preset).name} after ${Math.round(timeoutMs / 1000)} seconds. The model is probably overloaded. Try again, or switch to gemini-3.5-flash-lite in Settings for faster answers.`,
         );
       }
@@ -338,6 +341,18 @@ export class OpenAICompatibleProvider implements FoodAnalysisProvider {
     }
   }
 }
+
+/** Chat-capable ids the key can use, with the preset's known-good models first. */
+export function suggestModels(ids: string[], preset: Preset, limit = 6): string[] {
+  const chat = ids.filter((id) => id.includes(preset.modelFilter) && !NON_CHAT.test(id));
+  const known = preset.suggestedModels.filter((m) => chat.includes(m));
+  const rest = chat.filter((m) => !known.includes(m));
+  const out = [...known, ...rest].slice(0, limit);
+  return out.length ? out : ids.slice(0, limit);
+}
+
+const NON_CHAT =
+  /embed|tts|image|imagen|audio|live|native|computer|robot|veo|lyria|research|realtime|transcri|moderation|whisper|dall-e|omni|banana|customtools/i;
 
 function trimSlash(url: string): string {
   return url.trim().replace(/\/+$/, '');
@@ -357,6 +372,11 @@ export function parseModelIds(body: string): string[] {
 
 /** Providers wrap errors differently: {error:{message}}, {error:"..."}, or [{error:{...}}]. */
 export function errorDetail(body: string): string {
+  if (/^\s*</.test(body)) {
+    // An HTML error page (gateway, proxy): keep its title, never the markup.
+    const title = /<title[^>]*>([^<]*)<\/title>/i.exec(body)?.[1]?.trim();
+    return title ?? '';
+  }
   try {
     let j: unknown = JSON.parse(body);
     if (Array.isArray(j)) j = j[0];
@@ -391,7 +411,7 @@ function httpError(status: number, body: string, config: ProviderConfig): AIErro
   if (status === 404) {
     return new AIError(
       'http',
-      `Not found (404). Check that the model "${config.model}" exists; use Test connection to see the available models.${detail ? ` ${detail}` : ''}`,
+      `Not found (404). Check that the model "${config.model}" exists (Test connection lists the available ones) and that the base URL ${trimSlash(config.baseUrl)} is complete.${detail ? ` ${detail}` : ''}`,
       status,
       detail,
     );

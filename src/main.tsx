@@ -1,14 +1,10 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { registerSW } from 'virtual:pwa-register';
 import App from './App';
 import './index.css';
 import { applyStoredTheme } from './lib/theme';
 
 applyStoredTheme();
-
-// Service worker: auto-updates in the background; a reload picks up new versions.
-registerSW({ immediate: true });
 
 // Ask the browser not to evict our IndexedDB under storage pressure (iOS Safari
 // may otherwise wipe data from sites not used for a week). Best effort.

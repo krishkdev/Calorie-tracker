@@ -6,6 +6,12 @@ process.env.TZ = 'Pacific/Kiritimati';
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      // vite-plugin-pwa's virtual module is only provided by the PWA plugin.
+      'virtual:pwa-register/react': '/src/test/pwaRegisterReact.ts',
+    },
+  },
   define: { __APP_VERSION__: JSON.stringify('test') },
   test: {
     environment: 'jsdom',

@@ -6,26 +6,29 @@ import {
   useLatestWeight,
   useProfile,
   useSettings,
+  useToday,
   useWeights,
 } from '../db/hooks';
 import { deleteWeight, updateProfile, upsertWeight } from '../db/repo';
-import { formatDayKey, safeDayKey, todayKey } from '../lib/dates';
+import { formatDayKey, lastNDayKeys, safeDayKey, todayKey } from '../lib/dates';
 import { computeTargets } from '../nutrition/tdee';
 import { displayWeight, formatWeight, parseWeightInput, weightUnitLabel } from '../nutrition/units';
 
 type Range = 7 | 30 | 90;
+const TREND_WINDOW = 7;
 
 export default function History() {
   const settings = useSettings();
   const profile = useProfile();
   const [range, setRange] = useState<Range>(30);
   const days = useDailyCalories(range) ?? [];
-  const weights = useWeights(range) ?? [];
+  const weights = useWeights(range, TREND_WINDOW - 1) ?? [];
   const latest = useLatestWeight();
   const unit = weightUnitLabel(settings.units);
 
   const [weightInput, setWeightInput] = useState('');
-  const [dayKey, setDayKey] = useState(todayKey);
+  const today = useToday();
+  const [dayKey, setDayKey] = useState(today);
   const [saving, setSaving] = useState(false);
 
   async function saveWeight() {
@@ -98,7 +101,12 @@ export default function History() {
             </span>
           )}
         </div>
-        <WeightChart weights={weights} units={settings.units} />
+        <WeightChart
+          weights={weights}
+          units={settings.units}
+          fromDayKey={lastNDayKeys(range, today)[0]}
+          window={TREND_WINDOW}
+        />
         <form
           className="weight-form"
           onSubmit={(e) => {

@@ -17,14 +17,19 @@ import { CHART, tooltipStyle } from './theme';
 interface Props {
   weights: WeightEntry[];
   units: Units;
+  /** Points before this day feed the trend but are not drawn. */
+  fromDayKey?: string;
+  window?: number;
 }
 
-export default function WeightChart({ weights, units }: Props) {
+export default function WeightChart({ weights, units, fromDayKey, window = 7 }: Props) {
   const unit = weightUnitLabel(units);
   const data = trailingAverage(
     weights.map((w) => ({ dayKey: w.dayKey, value: displayWeight(w.weightKg, units) })),
-    7,
-  ).map((p) => ({ ...p, label: formatShortDate(p.dayKey) }));
+    window,
+  )
+    .filter((p) => !fromDayKey || p.dayKey >= fromDayKey)
+    .map((p) => ({ ...p, label: formatShortDate(p.dayKey) }));
 
   if (data.length === 0) {
     return (

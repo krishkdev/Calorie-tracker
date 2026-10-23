@@ -60,7 +60,53 @@ describe('parseAnalysis', () => {
     );
     expect(r.items).toHaveLength(1);
     expect(r.items[0].calories).toBe(0);
-    expect(r.items[0].confidence).toBe(1);
+    expect(r.items[0].confidence).toBe(0.2); // "2" on a 1-10 scale
+  });
+
+  it('reads numbers embedded in prose and object-valued fields', () => {
+    const r = parseAnalysis(
+      JSON.stringify({
+        items: [
+          {
+            name: 'Rice',
+            portion: { amount: 150, unit: 'g' },
+            calories: 'approx. 250 kcal (100 g)',
+            protein_g: 'est. 12',
+            carbs_g: { value: '45,5', unit: 'g' },
+            fat_g: '1 cup (3 g)',
+            confidence: 85,
+          },
+        ],
+      }),
+    );
+    expect(r.items[0]).toMatchObject({
+      portion: '150 g',
+      calories: 250,
+      protein_g: 12,
+      carbs_g: 45.5,
+      fat_g: 1,
+      confidence: 0.85,
+    });
+  });
+
+  it('finds items nested one level down or keyed by name', () => {
+    const nested = parseAnalysis('{"meal":{"items":[{"name":"Egg","calories":70}]}}');
+    expect(nested.items.map((i) => i.name)).toEqual(['Egg']);
+    const keyed = parseAnalysis('{"items":{"Apple":{"calories":95},"Banana":{"calories":105}}}');
+    expect(keyed.items.map((i) => [i.name, i.calories])).toEqual([
+      ['Apple', 95],
+      ['Banana', 105],
+    ]);
+  });
+
+  it('survives braces in prose, two objects, and trailing commas', () => {
+    expect(
+      parseAnalysis('Note: {items} means: {"items":[{"name":"A","calories":1}]}').items,
+    ).toHaveLength(1);
+    expect(parseAnalysis('{"items":[{"name":"A","calories":1}]} {"notes":"x"}').items).toHaveLength(
+      1,
+    );
+    expect(parseAnalysis('{"items":[{"name":"A","calories":1,},],}').items).toHaveLength(1);
   });
 
   it('returns empty items with notes when nothing is edible', () => {

@@ -26,10 +26,13 @@ export async function downscaleImage(file: Blob, opts: Options = {}): Promise<Do
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas is not available in this browser.');
-  ctx.drawImage(source.image, 0, 0, width, height);
-  source.release();
+  try {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas is not available in this browser.');
+    ctx.drawImage(source.image, 0, 0, width, height);
+  } finally {
+    source.release();
+  }
 
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, 'image/jpeg', quality),

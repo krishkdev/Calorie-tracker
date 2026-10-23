@@ -9,8 +9,8 @@ import type { AIError } from '../ai/types';
 import AIErrorCard from '../components/AIErrorCard';
 import BusyHint from '../components/BusyHint';
 import { useSettings } from '../db/hooks';
-import type { MealType } from '../db/types';
 import { safeDayKey } from '../lib/dates';
+import { mealFromParam } from '../lib/meals';
 import type { ReviewState } from './ReviewEntry';
 
 export default function LogPhoto() {
@@ -24,6 +24,7 @@ export default function LogPhoto() {
   const [error, setError] = useState<AIError | null>(null);
   const [notes, setNotes] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const vision = settings.provider.supportsVision;
 
   // Release the preview's object URL when leaving the screen.
@@ -40,6 +41,8 @@ export default function LogPhoto() {
     setFile(f);
     if (preview) URL.revokeObjectURL(preview);
     setPreview(f ? URL.createObjectURL(f) : null);
+    // Clear the native input so picking the same file again fires a change event.
+    if (!f && fileRef.current) fileRef.current.value = '';
   }
 
   async function analyze() {
@@ -49,10 +52,9 @@ export default function LogPhoto() {
     setNotes(null);
     abort.current = new AbortController();
     try {
-      const [image, thumb] = await Promise.all([
-        downscaleImage(file, { maxEdge: 1024, quality: 0.8 }),
-        downscaleImage(file, { maxEdge: 256, quality: 0.7 }),
-      ]);
+      // Decode the full-size photo once; the thumbnail comes from the result.
+      const image = await downscaleImage(file, { maxEdge: 1024, quality: 0.8 });
+      const thumb = await downscaleImage(image.blob, { maxEdge: 256, quality: 0.7 });
       const result = await createProvider(settings.provider).analyze(
         {
           image: { dataUrl: image.dataUrl, mime: 'image/jpeg' },
@@ -72,12 +74,13 @@ export default function LogPhoto() {
         items: itemsFromAnalysis(result),
         note: context.trim() || undefined,
         photoThumb: thumb.blob,
-        meal: (params.get('meal') as MealType | null) ?? undefined,
+        meal: mealFromParam(params.get('meal')),
         dayKey: params.get('day') ? safeDayKey(params.get('day')) : undefined,
       };
       navigate('/entry/new', { state });
     } catch (e) {
-      setError(toAIError(e));
+      const err = toAIError(e);
+      if (err.code !== 'aborted') setError(err); // Cancel is not an error
     } finally {
       setBusy(false);
     }
@@ -131,6 +134,7 @@ export default function LogPhoto() {
               </>
             )}
             <input
+              ref={fileRef}
               type="file"
               accept="image/*"
               className="sr-only"

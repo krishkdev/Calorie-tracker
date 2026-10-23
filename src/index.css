@@ -183,6 +183,43 @@ h3 {
   border-top: 1px solid var(--line);
   padding: 10px 16px calc(var(--safe-bottom) + 10px);
 }
+.update-toast {
+  position: fixed;
+  z-index: 30;
+  left: 16px;
+  right: 16px;
+  bottom: calc(var(--safe-bottom) + 96px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  font-size: 14px;
+}
+.update-toast span {
+  flex: 1;
+}
+.update-toast .btn {
+  padding: 8px 14px;
+  min-height: 0;
+}
+.update-later {
+  color: var(--muted);
+  font-size: 13px;
+}
+@media (min-width: 1024px) {
+  .update-toast {
+    left: auto;
+    right: 24px;
+    bottom: 24px;
+    width: 360px;
+  }
+}
 .app-nav ul {
   display: flex;
   align-items: center;

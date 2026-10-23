@@ -39,6 +39,7 @@ export type AIErrorCode =
   | 'bad_json'
   | 'http'
   | 'aborted'
+  | 'timeout'
   | 'empty';
 
 export class AIError extends Error {

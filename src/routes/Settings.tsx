@@ -2,6 +2,7 @@ import Icon from '../components/Icon';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DataSection from '../components/DataSection';
+import NumberInput from '../components/NumberInput';
 import ProviderForm from '../components/ProviderForm';
 import { useProfile, useSettings } from '../db/hooks';
 import { clearAllData, updateProfile, updateSettings } from '../db/repo';
@@ -11,6 +12,7 @@ import {
   ACTIVITY_LABELS,
   ACTIVITY_MULTIPLIERS,
   computeTargets,
+  isPlausibleBody,
   macrosFromPercents,
   percentsFromMacros,
   type MacroPercents,
@@ -35,6 +37,7 @@ export default function Settings() {
     )
       return;
     await clearAllData();
+    applyTheme('system');
     navigate('/onboarding', { replace: true });
   }
 
@@ -134,6 +137,9 @@ function GoalsSection({ units }: { units: Units }) {
   return <GoalsForm key={profile.onboardedAt} units={units} profile={profile} />;
 }
 
+const MIN_PCT = 5;
+const MAX_PCT = 70;
+
 function GoalsForm({ units, profile }: { units: Units; profile: Profile }) {
   const [sex, setSex] = useState<Sex>(profile.sex);
   const [age, setAge] = useState(profile.age);
@@ -158,6 +164,12 @@ function GoalsForm({ units, profile }: { units: Units; profile: Profile }) {
     goal,
     rateKgPerWeek: goal === 'maintain' ? 0 : rate,
   });
+  // Until the user edits the targets by hand, what is shown (and saved) follows
+  // the profile fields live, so the numbers on screen are the numbers stored.
+  const shown = dirtyTargets ? targets : computed.targets;
+  const shownPct = dirtyTargets ? pct : percentsFromMacros(computed.targets);
+  const bodyValid = isPlausibleBody({ age, heightCm, weightKg });
+
   function applyTargets(next: Macros) {
     setTargets(next);
     setPct(percentsFromMacros(next));
@@ -173,24 +185,28 @@ function GoalsForm({ units, profile }: { units: Units; profile: Profile }) {
     setKcalDraft(raw);
     const n = Number(raw);
     if (Number.isFinite(n) && n > 0) {
-      setTargets(macrosFromPercents(Math.round(n), pct));
+      setPct(shownPct);
+      setTargets(macrosFromPercents(Math.round(n), shownPct));
       setDirtyTargets(true);
     }
   }
 
   function setPercent(key: 'protein' | 'carbs' | 'fat', value: number) {
-    const next = { ...pct, [key]: value };
-    const others = (['protein', 'carbs', 'fat'] as const).filter((k) => k !== key);
+    const next = { ...shownPct, [key]: value };
+    const [a, b] = (['protein', 'carbs', 'fat'] as const).filter((k) => k !== key);
     const rest = 100 - value;
-    const otherSum = next[others[0]] + next[others[1]] || 1;
-    next[others[0]] = Math.round((next[others[0]] / otherSum) * rest);
-    next[others[1]] = rest - next[others[0]];
+    const ratio = next[a] / (next[a] + next[b] || 1);
+    // Keep every macro inside the slider's own range so label and slider agree.
+    next[a] = Math.min(Math.max(Math.round(ratio * rest), MIN_PCT), rest - MIN_PCT);
+    next[b] = rest - next[a];
     setPct(next);
-    setTargets(macrosFromPercents(targets.kcal, next));
+    setTargets(macrosFromPercents(shown.kcal, next));
+    setKcalDraft(String(shown.kcal));
     setDirtyTargets(true);
   }
 
   async function save() {
+    if (!bodyValid) return;
     // Targets follow the profile unless the user edited them by hand.
     const nextTargets = dirtyTargets ? targets : computed.targets;
     await updateProfile({
@@ -222,12 +238,13 @@ function GoalsForm({ units, profile }: { units: Units; profile: Profile }) {
       />
       <label className="block">
         <span className="label">Age</span>
-        <input
-          type="number"
+        <NumberInput
           inputMode="numeric"
           className="input"
           value={age}
-          onChange={(e) => setAge(Number(e.target.value))}
+          min={10}
+          max={120}
+          onChange={setAge}
         />
       </label>
       <HeightInput units={units} heightCm={heightCm} onChange={setHeightCm} />
@@ -282,32 +299,32 @@ function GoalsForm({ units, profile }: { units: Units; profile: Profile }) {
             type="number"
             inputMode="numeric"
             className="input"
-            value={kcalDraft}
+            value={dirtyTargets ? kcalDraft : String(shown.kcal)}
             min={800}
             onChange={(e) => setKcal(e.target.value)}
-            onBlur={() => setKcalDraft(String(targets.kcal))}
+            onBlur={() => setKcalDraft(String(shown.kcal))}
           />
         </label>
         <div className="mt-3 space-y-2">
           {(
             [
-              ['protein', 'Protein', targets.proteinG],
-              ['carbs', 'Carbs', targets.carbsG],
-              ['fat', 'Fat', targets.fatG],
+              ['protein', 'Protein', shown.proteinG],
+              ['carbs', 'Carbs', shown.carbsG],
+              ['fat', 'Fat', shown.fatG],
             ] as const
           ).map(([key, label, grams]) => (
             <label key={key} className="block">
               <span className="flex justify-between text-sm">
                 <span>{label}</span>
                 <span className="tabular-nums text-gray-600 dark:text-gray-400">
-                  {pct[key]}% · {grams} g
+                  {shownPct[key]}% · {grams} g
                 </span>
               </span>
               <input
                 type="range"
-                min={5}
-                max={70}
-                value={pct[key]}
+                min={MIN_PCT}
+                max={MAX_PCT}
+                value={shownPct[key]}
                 className="w-full accent-brand-600"
                 onChange={(e) => setPercent(key, Number(e.target.value))}
               />
@@ -322,7 +339,18 @@ function GoalsForm({ units, profile }: { units: Units; profile: Profile }) {
         )}
       </div>
 
-      <button type="button" className="btn btn-primary w-full" onClick={() => void save()}>
+      {!bodyValid && (
+        <p className="text-xs text-red-600 dark:text-red-400">
+          Enter an age between 10 and 120, a height between 100 and 250 cm, and a weight between 25
+          and 400 kg.
+        </p>
+      )}
+      <button
+        type="button"
+        className="btn btn-primary w-full"
+        disabled={!bodyValid}
+        onClick={() => void save()}
+      >
         {saved ? 'Saved ✓' : 'Save profile'}
       </button>
     </Section>
