@@ -8,12 +8,15 @@ import {
   type AnalysisResult,
   type ConnectionTest,
   type FoodAnalysisProvider,
+  type ProbeResult,
 } from './types';
 
 /** Food analysis can involve a photo plus model "thinking"; give it room. */
 const ANALYZE_TIMEOUT_MS = 45_000;
 /** The connection test only lists models, so it should be quick. */
 const TEST_TIMEOUT_MS = 20_000;
+/** Each diagnostics probe gets this long. */
+const PROBE_TIMEOUT_MS = 30_000;
 /** Thinking models count their reasoning against this budget; keep it generous. */
 const MAX_TOKENS = 4096;
 /** Transient statuses worth one automatic retry. */
@@ -139,6 +142,78 @@ export class OpenAICompatibleProvider implements FoodAnalysisProvider {
     } catch (e) {
       return { ok: false, model, message: toAIError(e).message };
     }
+  }
+
+  /**
+   * Timed probes that isolate why a request might hang: the model list, a bare
+   * one-word reply with no extras, and the same reply with the app's full
+   * request options. Each probe has its own short timeout.
+   */
+  async diagnose(opts?: { signal?: AbortSignal }): Promise<ProbeResult[]> {
+    const results: ProbeResult[] = [];
+    const preset = getPreset(this.config.preset);
+    const probe = async (label: string, run: () => Promise<string>) => {
+      const started = Date.now();
+      try {
+        const detail = await run();
+        results.push({ label, ok: true, ms: Date.now() - started, detail });
+      } catch (e) {
+        results.push({ label, ok: false, ms: Date.now() - started, detail: toAIError(e).message });
+      }
+    };
+    const ask = async (body: Record<string, unknown>) => {
+      const res = await this.request(
+        '/chat/completions',
+        { method: 'POST', body: JSON.stringify({ model: this.config.model.trim(), ...body }) },
+        opts?.signal,
+        PROBE_TIMEOUT_MS,
+      );
+      const text = await res.text();
+      if (!res.ok) throw httpError(res.status, text, this.config);
+      const data = JSON.parse(text) as ChatResponse;
+      const content = data.choices?.[0]?.message?.content;
+      const reply = Array.isArray(content)
+        ? content.map((p) => (p.type === 'text' ? p.text : '')).join('')
+        : (content ?? '');
+      return `reply: ${JSON.stringify(reply.trim().slice(0, 40))}`;
+    };
+    const minimal = [{ role: 'user', content: 'Reply with exactly the word OK and nothing else.' }];
+
+    this.assertConfigured();
+    await probe('List models', async () => {
+      const res = await this.request('/models', { method: 'GET' }, opts?.signal, PROBE_TIMEOUT_MS);
+      const text = await res.text();
+      if (!res.ok) throw httpError(res.status, text, this.config);
+      const ids = parseModelIds(text);
+      return `${ids.length} models${ids.includes(this.config.model.trim()) ? ', includes yours' : ', yours NOT listed'}`;
+    });
+    await probe('Bare reply (no options)', () => ask({ messages: minimal, max_tokens: 16 }));
+    if (preset.extraBody) {
+      await probe('Reply with reasoning setting', () =>
+        ask({ messages: minimal, max_tokens: 1024, ...preset.extraBody }),
+      );
+    }
+    await probe('Reply with JSON mode', () =>
+      ask({
+        messages: [
+          { role: 'user', content: 'Reply with the JSON object {"ok":true} and nothing else.' },
+        ],
+        max_tokens: 1024,
+        response_format: { type: 'json_object' },
+      }),
+    );
+    await probe('Reply with all app options', () =>
+      ask({
+        messages: [
+          { role: 'user', content: 'Reply with the JSON object {"ok":true} and nothing else.' },
+        ],
+        temperature: 0.2,
+        max_tokens: MAX_TOKENS,
+        ...(preset.extraBody ?? {}),
+        ...(this.config.jsonMode ? { response_format: { type: 'json_object' } } : {}),
+      }),
+    );
+    return results;
   }
 
   private assertConfigured(): void {

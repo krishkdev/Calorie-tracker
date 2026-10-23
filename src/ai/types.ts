@@ -59,6 +59,14 @@ export interface ConnectionTest {
   message: string;
 }
 
+/** One timed probe from the diagnostics panel. */
+export interface ProbeResult {
+  label: string;
+  ok: boolean;
+  ms: number;
+  detail: string;
+}
+
 export interface FoodAnalysisProvider {
   readonly kind: ProviderKind;
   readonly supportsVision: boolean;
