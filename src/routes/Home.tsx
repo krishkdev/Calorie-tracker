@@ -1,23 +1,24 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Icon from '../components/Icon';
-import { useSettings } from '../db/hooks';
-import { getPreset } from '../ai/presets';
+import { isProviderConfigured } from '../ai/presets';
 import CalorieRing from '../components/CalorieRing';
 import DateNav from '../components/DateNav';
 import MacroBars from '../components/MacroBars';
 import MealSection from '../components/MealSection';
 import { MEAL_ORDER } from '../lib/meals';
-import { useDayEntries, useProfile } from '../db/hooks';
+import { useDayEntries, useProfile, useSettingsLoaded } from '../db/hooks';
+import { DEFAULT_SETTINGS } from '../db/defaults';
 import { todayKey } from '../lib/dates';
 import { sumMacros, ZERO_MACROS } from '../nutrition/totals';
 
 export default function Home() {
   const [dayKey, setDayKey] = useState(todayKey);
   const profile = useProfile();
-  const settings = useSettings();
-  const preset = getPreset(settings.provider.preset);
-  const configured = !preset.needsKey || Boolean(settings.provider.apiKey.trim());
+  const loaded = useSettingsLoaded();
+  const settings = loaded ?? DEFAULT_SETTINGS;
+  // Assume configured until settings arrive so the setup card never flashes.
+  const configured = loaded ? isProviderConfigured(settings.provider) : true;
   const entries = useDayEntries(dayKey) ?? [];
   const consumed = entries.length ? sumMacros(entries.map((e) => e.totals)) : ZERO_MACROS;
   const target = profile?.targets ?? ZERO_MACROS;
@@ -42,7 +43,7 @@ export default function Home() {
                   ? settings.provider.supportsVision
                     ? 'Snap a photo. Let your AI do the rest.'
                     : 'Describe a meal. Let your AI do the rest.'
-                  : 'Connect your key or a local model to get started.'}
+                  : 'Add your Gemini or OpenAI key to get started.'}
               </small>
             </span>
             <Icon name="arrow" size={19} />

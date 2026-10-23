@@ -83,8 +83,8 @@ export interface Favorite {
 }
 
 export type ProviderKind = 'openai-compatible' | 'anthropic';
-export type PresetId =
-  'deepseek' | 'openrouter' | 'gemini' | 'openai' | 'ollama' | 'lmstudio' | 'custom';
+/** Only two hosted providers are offered; both read images. */
+export type PresetId = 'gemini' | 'openai';
 
 export interface ProviderConfig {
   kind: ProviderKind;

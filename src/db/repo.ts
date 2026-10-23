@@ -1,5 +1,6 @@
 import { db } from './db';
 import { DEFAULT_SETTINGS } from './defaults';
+import { getPreset, isPresetId } from '../ai/presets';
 import type {
   CachedProduct,
   Favorite,
@@ -7,6 +8,7 @@ import type {
   FoodItem,
   Profile,
   ProductInfo,
+  ProviderConfig,
   Settings,
   WeightEntry,
 } from './types';
@@ -36,14 +38,40 @@ export async function getSettings(): Promise<Settings> {
   return s ? mergeSettings(s) : { ...DEFAULT_SETTINGS };
 }
 
-/** Fill in any fields added after the user first saved settings. */
+/**
+ * Fill in any fields added after the user first saved settings, and make the
+ * provider block safe to use even if it came from an old version or a hand-
+ * edited backup (wrong types, a preset that no longer exists).
+ */
 export function mergeSettings(s: Partial<Settings>): Settings {
   return {
     ...DEFAULT_SETTINGS,
     ...s,
     id: 'app',
-    provider: { ...DEFAULT_SETTINGS.provider, ...(s.provider ?? {}) },
+    provider: sanitizeProvider(s.provider),
     mealCutoffs: { ...DEFAULT_SETTINGS.mealCutoffs, ...(s.mealCutoffs ?? {}) },
+  };
+}
+
+function sanitizeProvider(raw: Partial<ProviderConfig> | undefined): ProviderConfig {
+  const p = raw ?? {};
+  if (!isPresetId(p.preset)) {
+    // Presets that were removed (or garbage): fall back to the default provider
+    // but keep nothing else, since the old key would not work there anyway.
+    return { ...DEFAULT_SETTINGS.provider };
+  }
+  const preset = getPreset(p.preset);
+  const str = (v: unknown, fallback: string) => (typeof v === 'string' ? v : fallback);
+  const proxy = typeof p.proxyUrl === 'string' && p.proxyUrl.trim() ? p.proxyUrl : undefined;
+  return {
+    kind: 'openai-compatible',
+    preset: p.preset,
+    baseUrl: str(p.baseUrl, preset.baseUrl) || preset.baseUrl,
+    apiKey: str(p.apiKey, ''),
+    model: str(p.model, preset.defaultModel) || preset.defaultModel,
+    supportsVision: typeof p.supportsVision === 'boolean' ? p.supportsVision : true,
+    jsonMode: typeof p.jsonMode === 'boolean' ? p.jsonMode : true,
+    ...(proxy ? { proxyUrl: proxy } : {}),
   };
 }
 

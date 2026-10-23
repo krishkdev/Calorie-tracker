@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { createProvider } from '../ai';
-import { configFromPreset, getPreset, looksLikeVisionModel, PRESETS } from '../ai/presets';
+import { configFromPreset, getPreset, PRESETS } from '../ai/presets';
 import type { ConnectionTest } from '../ai/types';
 import { db } from '../db/db';
 import { mergeSettings, updateSettings } from '../db/repo';
@@ -47,21 +47,9 @@ function Form({
   const dirty = JSON.stringify(cfg) !== JSON.stringify(initial);
 
   function choosePreset(id: PresetId) {
-    setCfg(configFromPreset(id, cfg.apiKey));
+    // Keys are provider-specific, so switching starts with an empty key field.
+    setCfg(configFromPreset(id));
     setTest(null);
-  }
-
-  function setModel(model: string) {
-    setCfg((c) => ({
-      ...c,
-      model,
-      supportsVision:
-        preset.vision === 'yes'
-          ? true
-          : preset.vision === 'no'
-            ? false
-            : looksLikeVisionModel(model),
-    }));
   }
 
   async function runTest() {
@@ -103,51 +91,46 @@ function Form({
         </select>
       </label>
 
-      <div className={`rounded-xl px-3 py-2 text-sm ${badgeClass(preset.vision)}`}>
+      <div className="rounded-xl bg-brand-50 px-3 py-2 text-sm text-brand-700 dark:bg-brand-700/20 dark:text-brand-500">
         <p className="font-semibold">{preset.badge}</p>
-        <p className="mt-0.5">{preset.imageNote}</p>
-        {preset.corsNote && <p className="mt-1 text-xs opacity-80">{preset.corsNote}</p>}
+        <p className="mt-0.5">{preset.note}</p>
       </div>
 
-      {preset.needsKey || cfg.preset === 'custom' ? (
-        <label className="block">
-          <span className="label">
-            API key{' '}
-            {preset.keyUrl && (
-              <a
-                className="font-normal text-brand-600 underline"
-                href={preset.keyUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                get one
-              </a>
-            )}
-          </span>
-          <div className="flex gap-2">
-            <input
-              className="input"
-              type={showKey ? 'text' : 'password'}
-              autoComplete="off"
-              spellCheck={false}
-              value={cfg.apiKey}
-              placeholder={preset.needsKey ? 'sk-…' : 'optional'}
-              onChange={(e) => setCfg({ ...cfg, apiKey: e.target.value })}
-            />
-            <button
-              type="button"
-              className="btn btn-secondary px-3"
-              onClick={() => setShowKey((s) => !s)}
-              aria-label={showKey ? 'Hide key' : 'Show key'}
-            >
-              {showKey ? 'Hide' : 'Show'}
-            </button>
-          </div>
-          <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
-            Stored in this browser. Requests go to your provider or configured proxy.
-          </span>
-        </label>
-      ) : null}
+      <label className="block">
+        <span className="label">
+          API key{' '}
+          <a
+            className="font-normal text-brand-600 underline"
+            href={preset.keyUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            get one
+          </a>
+        </span>
+        <div className="flex gap-2">
+          <input
+            className="input"
+            type={showKey ? 'text' : 'password'}
+            autoComplete="off"
+            spellCheck={false}
+            value={cfg.apiKey}
+            placeholder={cfg.preset === 'gemini' ? 'AIza…' : 'sk-…'}
+            onChange={(e) => setCfg({ ...cfg, apiKey: e.target.value })}
+          />
+          <button
+            type="button"
+            className="btn btn-secondary px-3"
+            onClick={() => setShowKey((s) => !s)}
+            aria-label={showKey ? 'Hide key' : 'Show key'}
+          >
+            {showKey ? 'Hide' : 'Show'}
+          </button>
+        </div>
+        <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
+          Stored in this browser only and sent only to {preset.name}.
+        </span>
+      </label>
 
       <label className="block">
         <span className="label">Model</span>
@@ -158,40 +141,18 @@ function Form({
           placeholder="model id"
           spellCheck={false}
           autoCapitalize="off"
-          onChange={(e) => setModel(e.target.value)}
+          onChange={(e) => setCfg({ ...cfg, model: e.target.value })}
         />
         <datalist id="model-suggestions">
           {preset.suggestedModels.map((m) => (
             <option key={m} value={m} />
           ))}
         </datalist>
+        <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
+          Photo logging works with {preset.name} models. Test connection checks that this model id
+          exists for your key.
+        </span>
       </label>
-
-      <div
-        className={`flex items-start justify-between gap-3 rounded-xl px-3 py-2 text-sm ${cfg.supportsVision ? 'bg-brand-50 text-brand-700 dark:bg-brand-700/20 dark:text-brand-500' : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}
-        aria-live="polite"
-      >
-        <p>
-          <span className="font-semibold">
-            Photo logging: {cfg.supportsVision ? 'available' : 'not available'}
-          </span>
-          <span className="block text-xs opacity-80">
-            {cfg.supportsVision
-              ? `${cfg.model || 'This model'} can read images.`
-              : `${cfg.model || 'This model'} is text only. You can still log by typing a description.`}
-          </span>
-        </p>
-        {preset.vision === 'depends' && (
-          <label className="flex flex-none items-center gap-2 text-xs">
-            <input
-              type="checkbox"
-              checked={cfg.supportsVision}
-              onChange={(e) => setCfg({ ...cfg, supportsVision: e.target.checked })}
-            />
-            Model can read images
-          </label>
-        )}
-      </div>
 
       <button
         type="button"
@@ -233,7 +194,7 @@ function Form({
               onChange={(e) => setCfg({ ...cfg, proxyUrl: e.target.value || undefined })}
             />
             <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
-              Only for providers that block browser requests. Requests go to the proxy with the real
+              Only if you run a relay that holds the key. Requests go to the proxy with the real
               base URL in an X-Target-Base-Url header.
             </span>
           </label>
@@ -277,10 +238,4 @@ function Form({
       </div>
     </div>
   );
-}
-
-function badgeClass(v: 'yes' | 'no' | 'depends'): string {
-  if (v === 'yes') return 'bg-brand-50 text-brand-700 dark:bg-brand-700/20 dark:text-brand-500';
-  if (v === 'no') return 'bg-amber-50 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200';
-  return 'bg-blue-50 text-blue-900 dark:bg-blue-900/30 dark:text-blue-200';
 }

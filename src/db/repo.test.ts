@@ -60,10 +60,10 @@ describe('weights', () => {
 describe('settings', () => {
   it('returns defaults and merges patches', async () => {
     const s = await getSettings();
-    expect(s.provider.preset).toBe('deepseek');
+    expect(s.provider.preset).toBe('gemini');
     await updateSettings({ units: 'imperial' });
     const next = await getSettings();
     expect(next.units).toBe('imperial');
-    expect(next.provider.model).toBe('deepseek-chat');
+    expect(next.provider.model).toBe('gemini-3.8-flash');
   });
 });

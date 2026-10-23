@@ -9,20 +9,21 @@ interface Props {
   entries: FoodEntry[];
 }
 
+const MEAL_ICONS: Record<MealType, IconName> = {
+  breakfast: 'sun',
+  lunch: 'bowl',
+  dinner: 'moon',
+  snack: 'heart',
+};
+
 export default function MealSection({ meal, dayKey, entries }: Props) {
-  const icons: Record<MealType, IconName> = {
-    breakfast: 'sun',
-    lunch: 'bowl',
-    dinner: 'moon',
-    snack: 'heart',
-  };
   const kcal = Math.round(entries.reduce((s, e) => s + e.totals.kcal, 0));
   return (
     <section className="meal-section" aria-labelledby={`meal-${meal}`}>
       <header className="meal-header">
         <div className="flex items-center gap-3">
           <span className={`meal-icon meal-icon-${meal}`}>
-            <Icon name={icons[meal]} size={20} />
+            <Icon name={MEAL_ICONS[meal]} size={20} />
           </span>
           <div>
             <h3 id={`meal-${meal}`} className="font-semibold">

@@ -30,16 +30,9 @@ docker run -d -p 8080:80 calorie-tracker
 
 Open http://localhost:8080. The image is nginx serving the built files with the cache headers above (see `nginx.conf`).
 
-## Using it on your phone with local models
+## Using it on your phone during development
 
-Phones can't reach `localhost` on your computer. Serve the app on your LAN and point it at your machine's IP:
-
-```bash
-npm run preview            # prints a http://192.168.x.x:4173 URL
-OLLAMA_HOST=0.0.0.0 OLLAMA_ORIGINS="*" ollama serve
-```
-
-In the app: Ollama preset, base URL `http://192.168.x.x:11434/v1`.
+Run `npm run preview -- --host` (or `npm run dev -- --host`) and open the printed LAN address on your phone. The AI providers are reached directly from the phone, so nothing else needs to run on your computer.
 
 ## Updating
 
