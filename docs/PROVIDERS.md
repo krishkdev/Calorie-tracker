@@ -16,7 +16,7 @@ The app offers two providers. Both read photos, and both are called straight fro
 
 ## Models
 
-Defaults: `gemini-3.8-flash` for Gemini and `gpt-6-luna` for OpenAI. The model field is free text, so you can type any id your key can access; Test connection tells you whether it exists.
+Defaults: `gemini-3.5-flash-lite` for Gemini and `gpt-6-luna` for OpenAI. On a free Gemini key the lite model answers text and photo requests in about a second, while `gemini-3.8-flash` is frequently overloaded (503) or silent until the timeout, so only pick it if your key has paid quota. The model field is free text, so you can type any id your key can access; Test connection tells you whether it exists.
 
 Gemini Flash models reason before answering. The app asks for low reasoning effort and allows a generous token budget so estimates stay quick and never come back empty.
 
