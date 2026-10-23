@@ -5,6 +5,7 @@ import { itemsFromAnalysis } from '../ai/mapItems';
 import { toAIError } from '../ai/openaiCompat';
 import type { AIError } from '../ai/types';
 import AIErrorCard from '../components/AIErrorCard';
+import BusyHint from '../components/BusyHint';
 import { useSettings } from '../db/hooks';
 import type { MealType } from '../db/types';
 import { safeDayKey } from '../lib/dates';
@@ -116,6 +117,7 @@ export default function LogText() {
           Cancel
         </button>
       )}
+      {busy && <BusyHint preset={settings.provider.preset} model={settings.provider.model} />}
       <p className="text-center text-xs text-gray-500">
         Using {settings.provider.model || 'no model'} via {settings.provider.preset}. Estimates are
         approximate; you can edit everything before saving.
