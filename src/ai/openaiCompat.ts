@@ -34,7 +34,7 @@ interface ChatMessage {
 
 interface ChatResponse {
   model?: string;
-  choices?: { message?: { content?: string | ContentPart[] | null } }[];
+  choices?: { message?: { content?: string | ContentPart[] | null }; finish_reason?: string }[];
 }
 
 interface ModelsResponse {
@@ -171,11 +171,18 @@ export class OpenAICompatibleProvider implements FoodAnalysisProvider {
       const text = await res.text();
       if (!res.ok) throw httpError(res.status, text, this.config);
       const data = JSON.parse(text) as ChatResponse;
-      const content = data.choices?.[0]?.message?.content;
-      const reply = Array.isArray(content)
-        ? content.map((p) => (p.type === 'text' ? p.text : '')).join('')
-        : (content ?? '');
-      return `reply: ${JSON.stringify(reply.trim().slice(0, 40))}`;
+      const choice = data.choices?.[0];
+      const content = choice?.message?.content;
+      const reply = (
+        Array.isArray(content)
+          ? content.map((p) => (p.type === 'text' ? p.text : '')).join('')
+          : (content ?? '')
+      ).trim();
+      if (!reply) {
+        const why = choice?.finish_reason ? ` (finish_reason: ${choice.finish_reason})` : '';
+        throw new AIError('bad_json', `Replied with no text${why}.`, res.status, text);
+      }
+      return `reply: ${JSON.stringify(reply.slice(0, 40))}`;
     };
     const minimal = [{ role: 'user', content: 'Reply with exactly the word OK and nothing else.' }];
 
@@ -187,7 +194,7 @@ export class OpenAICompatibleProvider implements FoodAnalysisProvider {
       const ids = parseModelIds(text);
       return `${ids.length} models${ids.includes(this.config.model.trim()) ? ', includes yours' : ', yours NOT listed'}`;
     });
-    await probe('Bare reply (no options)', () => ask({ messages: minimal, max_tokens: 16 }));
+    await probe('Bare reply (no options)', () => ask({ messages: minimal, max_tokens: 1024 }));
     if (preset.extraBody) {
       await probe('Reply with reasoning setting', () =>
         ask({ messages: minimal, max_tokens: 1024, ...preset.extraBody }),

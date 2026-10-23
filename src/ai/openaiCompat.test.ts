@@ -318,4 +318,20 @@ describe('OpenAICompatibleProvider.diagnose', () => {
     expect(full.reasoning_effort).toBe('minimal');
     expect(full.response_format).toEqual({ type: 'json_object' });
   });
+
+  it('counts an empty reply as a failure', async () => {
+    fetchMock.mockResolvedValueOnce(models(['models/gemini-3.8-flash']));
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ choices: [{ message: { content: '' }, finish_reason: 'length' }] }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    );
+    fetchMock.mockImplementation(async () => reply('{"ok":true}'));
+    const r = await new OpenAICompatibleProvider(gemini).diagnose();
+    expect(r[1].ok).toBe(false);
+    expect(r[1].detail).toMatch(/no text/);
+    expect(r[1].detail).toMatch(/length/);
+    expect(r.slice(2).every((p) => p.ok)).toBe(true);
+  });
 });
