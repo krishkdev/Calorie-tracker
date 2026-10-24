@@ -1,6 +1,11 @@
 import type { FoodItem, Macros } from '../db/types';
 
-export const ZERO_MACROS: Macros = { kcal: 0, proteinG: 0, carbsG: 0, fatG: 0 };
+export const ZERO_MACROS: Macros = { kcal: 0, proteinG: 0, carbsG: 0, fatG: 0, fiberG: 0 };
+
+/** Fibre of a macro set, treating the pre-fibre `undefined` as 0. */
+export function fiberOf(m: Pick<Macros, 'fiberG'>): number {
+  return num(m.fiberG);
+}
 
 function num(v: unknown): number {
   const n = typeof v === 'number' ? v : Number(v);
@@ -9,7 +14,7 @@ function num(v: unknown): number {
 
 /** Effective nutrition for an item = base values × quantity. */
 export function itemMacros(
-  item: Pick<FoodItem, 'quantity' | 'kcal' | 'proteinG' | 'carbsG' | 'fatG'>,
+  item: Pick<FoodItem, 'quantity' | 'kcal' | 'proteinG' | 'carbsG' | 'fatG' | 'fiberG'>,
 ): Macros {
   const q = num(item.quantity) || 0;
   return {
@@ -17,6 +22,7 @@ export function itemMacros(
     proteinG: num(item.proteinG) * q,
     carbsG: num(item.carbsG) * q,
     fatG: num(item.fatG) * q,
+    fiberG: num(item.fiberG) * q,
   };
 }
 
@@ -27,6 +33,7 @@ export function sumMacros(list: Macros[]): Macros {
       proteinG: acc.proteinG + num(m.proteinG),
       carbsG: acc.carbsG + num(m.carbsG),
       fatG: acc.fatG + num(m.fatG),
+      fiberG: (acc.fiberG ?? 0) + num(m.fiberG),
     }),
     { ...ZERO_MACROS },
   );
@@ -42,6 +49,7 @@ export function roundMacros(m: Macros): Macros {
     proteinG: Math.round(m.proteinG * 10) / 10,
     carbsG: Math.round(m.carbsG * 10) / 10,
     fatG: Math.round(m.fatG * 10) / 10,
+    fiberG: Math.round(num(m.fiberG) * 10) / 10,
   };
 }
 
@@ -51,5 +59,6 @@ export function scaleMacros(m: Macros, factor: number): Macros {
     proteinG: m.proteinG * factor,
     carbsG: m.carbsG * factor,
     fatG: m.fatG * factor,
+    fiberG: num(m.fiberG) * factor,
   };
 }

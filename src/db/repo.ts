@@ -15,11 +15,19 @@ import type {
 import { newId } from '../lib/id';
 import { isMealType } from '../lib/meals';
 import { entryTotals } from '../nutrition/totals';
+import { fiberTarget } from '../nutrition/tdee';
 
 // ---------- Profile ----------
 
-export function getProfile(): Promise<Profile | undefined> {
-  return db.profile.get('me');
+export async function getProfile(): Promise<Profile | undefined> {
+  const p = await db.profile.get('me');
+  return p ? withFiberTarget(p) : undefined;
+}
+
+/** Profiles saved before fibre tracking have no fibre target; derive one from calories. */
+export function withFiberTarget(p: Profile): Profile {
+  if (typeof p.targets.fiberG === 'number' && Number.isFinite(p.targets.fiberG)) return p;
+  return { ...p, targets: { ...p.targets, fiberG: fiberTarget(p.targets.kcal) } };
 }
 
 export async function saveProfile(profile: Omit<Profile, 'id'>): Promise<void> {
@@ -166,6 +174,7 @@ export function normalizeItem(item: Partial<FoodItem> & { name: string }): FoodI
     proteinG: Math.max(0, finite(item.proteinG, 0)),
     carbsG: Math.max(0, finite(item.carbsG, 0)),
     fatG: Math.max(0, finite(item.fatG, 0)),
+    fiberG: Math.max(0, finite(item.fiberG, 0)),
     confidence:
       typeof item.confidence === 'number' && Number.isFinite(item.confidence)
         ? Math.min(1, Math.max(0, item.confidence))

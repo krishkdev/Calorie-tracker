@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db';
-import { mergeSettings } from './repo';
+import { mergeSettings, withFiberTarget } from './repo';
 import { DEFAULT_SETTINGS } from './defaults';
 import type { FoodEntry, Macros, Settings, WeightEntry } from './types';
 import { lastNDayKeys, todayKey } from '../lib/dates';
-import { sumMacros, ZERO_MACROS } from '../nutrition/totals';
+import { fiberOf, sumMacros, ZERO_MACROS } from '../nutrition/totals';
 
 /** undefined while loading, null when the user has not onboarded yet. */
 export function useProfile() {
-  return useLiveQuery(async () => (await db.profile.get('me')) ?? null, []);
+  return useLiveQuery(async () => {
+    const p = await db.profile.get('me');
+    return p ? withFiberTarget(p) : null;
+  }, []);
 }
 
 /** Stored settings, or undefined while the first read is in flight. */
@@ -45,6 +48,9 @@ export interface DailyCalories {
   protein: number;
   carbs: number;
   fat: number;
+  fiber: number;
+  /** False for days with no entries at all, so averages can skip them. */
+  logged: boolean;
 }
 
 /**
@@ -82,7 +88,15 @@ export function useDailyCalories(days: number): DailyCalories[] | undefined {
     }
     return keys.map((dayKey) => {
       const m = sumMacros(byDay.get(dayKey) ?? []);
-      return { dayKey, kcal: m.kcal, protein: m.proteinG, carbs: m.carbsG, fat: m.fatG };
+      return {
+        dayKey,
+        kcal: m.kcal,
+        protein: m.proteinG,
+        carbs: m.carbsG,
+        fat: m.fatG,
+        fiber: fiberOf(m),
+        logged: byDay.has(dayKey),
+      };
     });
   }, [days, today]);
 }

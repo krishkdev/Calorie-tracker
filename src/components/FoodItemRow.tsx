@@ -83,7 +83,8 @@ export default function FoodItemRow({ item, onChange, onRemove }: Props) {
         >
           <span className="block font-semibold tabular-nums">{Math.round(eff.kcal)} kcal</span>
           <span className="block text-xs text-gray-500">
-            P {r1(eff.proteinG)} · C {r1(eff.carbsG)} · F {r1(eff.fatG)} {open ? '▴' : '▾'}
+            P {r1(eff.proteinG)} · C {r1(eff.carbsG)} · F {r1(eff.fatG)} · Fb {r1(eff.fiberG ?? 0)}{' '}
+            {open ? '▴' : '▾'}
           </span>
         </button>
       </div>
@@ -95,6 +96,7 @@ export default function FoodItemRow({ item, onChange, onRemove }: Props) {
           <NumField label="Protein g" value={item.proteinG} onChange={(v) => set('proteinG', v)} />
           <NumField label="Carbs g" value={item.carbsG} onChange={(v) => set('carbsG', v)} />
           <NumField label="Fat g" value={item.fatG} onChange={(v) => set('fatG', v)} />
+          <NumField label="Fibre g" value={item.fiberG ?? 0} onChange={(v) => set('fiberG', v)} />
           {item.confidence !== undefined && (
             <p className="col-span-4 text-xs text-gray-500">
               AI confidence: {Math.round(item.confidence * 100)}%

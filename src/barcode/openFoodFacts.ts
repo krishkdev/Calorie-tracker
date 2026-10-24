@@ -40,6 +40,7 @@ interface PartialMacros {
   proteinG?: number;
   carbsG?: number;
   fatG?: number;
+  fiberG?: number;
 }
 
 function macrosFrom(
@@ -56,6 +57,7 @@ function macrosFrom(
     proteinG: num(n[`proteins${suffix}`]),
     carbsG: num(n[`carbohydrates${suffix}`]),
     fatG: num(n[`fat${suffix}`]),
+    fiberG: num(n[`fiber${suffix}`]),
   };
 }
 
@@ -68,6 +70,7 @@ function complete(m: PartialMacros, reference?: Macros, factor = 1): Macros {
   const proteinG = m.proteinG ?? (reference ? reference.proteinG * factor : 0);
   const carbsG = m.carbsG ?? (reference ? reference.carbsG * factor : 0);
   const fatG = m.fatG ?? (reference ? reference.fatG * factor : 0);
+  const fiberG = m.fiberG ?? (reference ? (reference.fiberG ?? 0) * factor : 0);
   const kcal =
     m.kcal ?? (reference ? reference.kcal * factor : proteinG * 4 + carbsG * 4 + fatG * 9);
   // Keep one decimal so scaling later stays accurate; screens round for display.
@@ -76,6 +79,7 @@ function complete(m: PartialMacros, reference?: Macros, factor = 1): Macros {
     proteinG: round1(proteinG),
     carbsG: round1(carbsG),
     fatG: round1(fatG),
+    fiberG: round1(fiberG),
   };
 }
 

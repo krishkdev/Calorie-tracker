@@ -212,7 +212,7 @@ function EntryForm({
         <div>
           <p className="text-xs text-gray-500">Total</p>
           <p className="text-xs text-gray-500">
-            P {totals.proteinG} · C {totals.carbsG} · F {totals.fatG}
+            P {totals.proteinG} · C {totals.carbsG} · F {totals.fatG} · Fb {totals.fiberG ?? 0}
           </p>
         </div>
         <p className="text-2xl font-bold tabular-nums">{totals.kcal} kcal</p>

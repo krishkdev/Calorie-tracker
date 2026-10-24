@@ -23,10 +23,22 @@ describe('mapProduct', () => {
     const p = mapProduct('123', base)!;
     expect(p.name).toBe('Peanut Butter');
     expect(p.brand).toBe('Acme');
-    expect(p.per100g).toEqual({ kcal: 588, proteinG: 25, carbsG: 20, fatG: 50 });
+    expect(p.per100g).toEqual({ kcal: 588, proteinG: 25, carbsG: 20, fatG: 50, fiberG: 0 });
     expect(p.servingGrams).toBe(32);
     expect(p.servingSize).toBe('32 g');
-    expect(p.perServing).toEqual({ kcal: 188.2, proteinG: 8, carbsG: 6.4, fatG: 16 });
+    expect(p.perServing).toEqual({ kcal: 188.2, proteinG: 8, carbsG: 6.4, fatG: 16, fiberG: 0 });
+  });
+
+  it('reads fibre and scales it to the serving', () => {
+    const p = mapProduct('123', {
+      ...base,
+      product: {
+        ...base.product,
+        nutriments: { ...base.product!.nutriments, fiber_100g: 6 },
+      },
+    })!;
+    expect(p.per100g.fiberG).toBe(6);
+    expect(p.perServing?.fiberG).toBe(1.9);
   });
 
   it('fills missing per-serving fields from the per-100g values', () => {
@@ -37,7 +49,7 @@ describe('mapProduct', () => {
         nutriments: { ...base.product!.nutriments, 'energy-kcal_serving': 190 },
       },
     })!;
-    expect(p.perServing).toEqual({ kcal: 190, proteinG: 8, carbsG: 6.4, fatG: 16 });
+    expect(p.perServing).toEqual({ kcal: 190, proteinG: 8, carbsG: 6.4, fatG: 16, fiberG: 0 });
   });
 
   it('estimates energy from macros when the product has none', () => {
@@ -79,7 +91,7 @@ describe('mapProduct', () => {
         },
       },
     })!;
-    expect(p.perServing).toEqual({ kcal: 190, proteinG: 8.2, carbsG: 6, fatG: 16.1 });
+    expect(p.perServing).toEqual({ kcal: 190, proteinG: 8.2, carbsG: 6, fatG: 16.1, fiberG: 0 });
   });
 
   it('falls back to kJ energy', () => {

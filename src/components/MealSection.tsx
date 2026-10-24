@@ -61,7 +61,7 @@ export default function MealSection({ meal, dayKey, entries }: Props) {
                   <p className="truncate font-medium">{summarize(e)}</p>
                   <p className="truncate text-xs text-gray-500">
                     P {Math.round(e.totals.proteinG)} · C {Math.round(e.totals.carbsG)} · F{' '}
-                    {Math.round(e.totals.fatG)}
+                    {Math.round(e.totals.fatG)} · Fb {Math.round(e.totals.fiberG ?? 0)}
                   </p>
                 </div>
                 <span className="tabular-nums text-sm font-semibold">

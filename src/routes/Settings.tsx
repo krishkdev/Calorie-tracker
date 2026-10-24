@@ -12,6 +12,7 @@ import {
   ACTIVITY_LABELS,
   ACTIVITY_MULTIPLIERS,
   computeTargets,
+  fiberTarget,
   isPlausibleBody,
   macrosFromPercents,
   percentsFromMacros,
@@ -181,12 +182,19 @@ function GoalsForm({ units, profile }: { units: Units; profile: Profile }) {
     setDirtyTargets(false);
   }
 
+  function setFiber(v: number) {
+    setPct(shownPct);
+    setTargets({ ...shown, fiberG: Math.max(0, Math.round(v)) });
+    setKcalDraft(String(shown.kcal));
+    setDirtyTargets(true);
+  }
+
   function setKcal(raw: string) {
     setKcalDraft(raw);
     const n = Number(raw);
     if (Number.isFinite(n) && n > 0) {
       setPct(shownPct);
-      setTargets(macrosFromPercents(Math.round(n), shownPct));
+      setTargets(macrosFromPercents(Math.round(n), shownPct, shown.fiberG));
       setDirtyTargets(true);
     }
   }
@@ -200,7 +208,7 @@ function GoalsForm({ units, profile }: { units: Units; profile: Profile }) {
     next[a] = Math.min(Math.max(Math.round(ratio * rest), MIN_PCT), rest - MIN_PCT);
     next[b] = rest - next[a];
     setPct(next);
-    setTargets(macrosFromPercents(shown.kcal, next));
+    setTargets(macrosFromPercents(shown.kcal, next, shown.fiberG));
     setKcalDraft(String(shown.kcal));
     setDirtyTargets(true);
   }
@@ -208,7 +216,8 @@ function GoalsForm({ units, profile }: { units: Units; profile: Profile }) {
   async function save() {
     if (!bodyValid) return;
     // Targets follow the profile unless the user edited them by hand.
-    const nextTargets = dirtyTargets ? targets : computed.targets;
+    const base = dirtyTargets ? targets : computed.targets;
+    const nextTargets = { ...base, fiberG: base.fiberG ?? fiberTarget(base.kcal) };
     await updateProfile({
       sex,
       age,
@@ -331,6 +340,25 @@ function GoalsForm({ units, profile }: { units: Units; profile: Profile }) {
             </label>
           ))}
         </div>
+        <label className="mt-3 block">
+          <span className="flex justify-between text-sm">
+            <span>Fibre</span>
+            <span className="tabular-nums text-gray-600 dark:text-gray-400">
+              suggested {fiberTarget(shown.kcal)} g
+            </span>
+          </span>
+          <NumberInput
+            inputMode="numeric"
+            className="input"
+            value={shown.fiberG ?? fiberTarget(shown.kcal)}
+            min={0}
+            max={100}
+            onChange={setFiber}
+          />
+          <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
+            Fibre keeps you full on fewer calories. The suggestion is 14 g per 1,000 kcal.
+          </span>
+        </label>
         {dirtyTargets && (
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
             Targets were edited by hand, so saving the profile keeps them. Tap Recompute to derive

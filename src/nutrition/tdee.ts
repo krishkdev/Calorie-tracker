@@ -60,6 +60,16 @@ export function calorieTarget(
   return { kcal: Math.round(kcal / 10) * 10, clamped };
 }
 
+/**
+ * Dietary Guidelines reference: 14 g of fibre per 1000 kcal. The result is
+ * floored at 20 g so very low calorie targets still get a meaningful goal.
+ */
+export const FIBER_G_PER_1000_KCAL = 14;
+
+export function fiberTarget(kcal: number): number {
+  return Math.max(20, Math.round((FIBER_G_PER_1000_KCAL * kcal) / 1000));
+}
+
 const PROTEIN_G_PER_KG: Record<GoalType, number> = { lose: 2.0, maintain: 1.6, gain: 1.8 };
 const FAT_SHARE = 0.25;
 
@@ -75,6 +85,7 @@ export function macroTargets(kcal: number, weightKg: number, goal: GoalType): Ma
     proteinG: Math.round(proteinG),
     carbsG: Math.round(carbsG),
     fatG: Math.round(fatG),
+    fiberG: fiberTarget(kcal),
   };
 }
 
@@ -109,12 +120,14 @@ export interface MacroPercents {
   fat: number;
 }
 
-export function macrosFromPercents(kcal: number, p: MacroPercents): Macros {
+/** Fibre is not part of the percentage split; pass the current target to keep it, else it follows kcal. */
+export function macrosFromPercents(kcal: number, p: MacroPercents, fiberG?: number): Macros {
   return {
     kcal,
     proteinG: Math.round((kcal * p.protein) / 100 / 4),
     carbsG: Math.round((kcal * p.carbs) / 100 / 4),
     fatG: Math.round((kcal * p.fat) / 100 / 9),
+    fiberG: fiberG ?? fiberTarget(kcal),
   };
 }
 

@@ -16,7 +16,13 @@ const egg: FoodItem = {
 
 describe('itemMacros', () => {
   it('multiplies base values by quantity', () => {
-    expect(itemMacros(egg)).toEqual({ kcal: 156, proteinG: 12.6, carbsG: 1.2, fatG: 10.6 });
+    expect(itemMacros(egg)).toEqual({
+      kcal: 156,
+      proteinG: 12.6,
+      carbsG: 1.2,
+      fatG: 10.6,
+      fiberG: 0,
+    });
   });
 
   it('treats bad numbers as zero', () => {
@@ -25,6 +31,7 @@ describe('itemMacros', () => {
       proteinG: 0,
       carbsG: 0,
       fatG: 0,
+      fiberG: 0,
     });
   });
 });
@@ -42,11 +49,13 @@ describe('sumMacros / entryTotals', () => {
       fatG: 1,
     };
     expect(sumMacros([itemMacros(egg), itemMacros(toast)]).kcal).toBeCloseTo(236.4);
+    expect(entryTotals([egg, { ...toast, fiberG: 1.25 }]).fiberG).toBe(1.3);
     expect(entryTotals([egg, toast])).toEqual({
       kcal: 236,
       proteinG: 15.3,
       carbsG: 16.2,
       fatG: 11.6,
+      fiberG: 0,
     });
   });
 });

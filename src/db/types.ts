@@ -10,6 +10,8 @@ export interface Macros {
   proteinG: number;
   carbsG: number;
   fatG: number;
+  /** Dietary fibre. Optional because it was added after the first release; missing means 0. */
+  fiberG?: number;
 }
 
 export interface Profile {
@@ -42,6 +44,8 @@ export interface FoodItem {
   proteinG: number;
   carbsG: number;
   fatG: number;
+  /** Fibre for quantity = 1, when known. Missing on entries saved before fibre tracking. */
+  fiberG?: number;
   /** 0..1 from the AI, when known. */
   confidence?: number;
   source: ItemSource;
