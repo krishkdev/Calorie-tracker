@@ -9,9 +9,10 @@ You bring your own AI key. Your data stays on your device.
 
 **Live app:** https://calorie-tracker-six-navy.vercel.app
 
-- **Log food four ways.** Describe it in words, snap a photo, scan a barcode, or type the numbers. The AI returns items with calories and macros that you review and edit before saving.
+- **Log food four ways.** Describe it in words, snap a photo, scan a barcode, or type the numbers. The AI returns items with calories, macros and fibre that you review and edit before saving.
 - **Bring your own AI.** Use your own Google Gemini key (free tier available) or OpenAI key. Both read photos. Nothing is billed through the app.
-- **Goals that make sense.** A short onboarding computes your daily calorie and macro targets (Mifflin-St Jeor), which you can adjust any time.
+- **Goals that make sense.** A short onboarding computes your daily calorie, macro and fibre targets (Mifflin-St Jeor; 14 g fibre per 1,000 kcal), which you can adjust any time.
+- **Insights and nudges.** Home explains each day in plain language (on target, mix off, fibre short) and, as the day goes on, tells you what is still left to eat and a food that covers it. Progress shows averages and days-on-target per nutrient.
 - **Private by design.** Food logs, weight and goals live in your browser's local database. There is no server and no account. Export a JSON backup whenever you like.
 - **Installable.** It is a Progressive Web App: add it to your phone's home screen and it works like a native app, including offline.
 - **Open source forever.** AGPL-3.0.

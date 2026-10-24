@@ -3,6 +3,7 @@ import Icon from '../components/Icon';
 import { isProviderConfigured } from '../ai/presets';
 import CalorieRing from '../components/CalorieRing';
 import DateNav from '../components/DateNav';
+import InsightsCard from '../components/InsightsCard';
 import MacroBars from '../components/MacroBars';
 import MealSection from '../components/MealSection';
 import { MEAL_ORDER } from '../lib/meals';
@@ -35,6 +36,13 @@ export default function Home() {
             <CalorieRing consumed={consumed.kcal} target={target.kcal} />
           </div>
           <MacroBars consumed={consumed} target={target} />
+          <InsightsCard
+            consumed={consumed}
+            target={target}
+            entryCount={entries.length}
+            isToday={dayKey === todayKey()}
+            cutoffs={settings.mealCutoffs}
+          />
           <Link to={configured ? `/log?day=${dayKey}` : '/settings'} className="quick-log-card">
             <span className="quick-log-icon">
               <Icon name={configured ? 'camera' : 'settings'} size={23} />

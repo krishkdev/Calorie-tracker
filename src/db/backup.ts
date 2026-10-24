@@ -1,7 +1,7 @@
 import { db } from './db';
 import { mergeSettings, normalizeItem } from './repo';
 import { isDayKey, todayKey } from '../lib/dates';
-import { ACTIVITY_MULTIPLIERS, isPlausibleBody } from '../nutrition/tdee';
+import { ACTIVITY_MULTIPLIERS, fiberTarget, isPlausibleBody } from '../nutrition/tdee';
 import { entryTotals } from '../nutrition/totals';
 import type {
   Activity,
@@ -266,6 +266,7 @@ function sanitizeProfile(raw: unknown): Profile | null {
     carbsG: finiteNum(t.carbsG),
     fatG: finiteNum(t.fatG),
   };
+  const fiberG = finiteNum(t.fiberG);
   const age = finiteNum(p.age);
   const heightCm = finiteNum(p.heightCm);
   const weightKg = finiteNum(p.weightKg);
@@ -291,7 +292,10 @@ function sanitizeProfile(raw: unknown): Profile | null {
     activity: p.activity as Activity,
     goal: p.goal as GoalType,
     rateKgPerWeek: Math.max(0, finiteNum(p.rateKgPerWeek) ?? 0),
-    targets: targets as Macros,
+    targets: {
+      ...(targets as Macros),
+      fiberG: fiberG !== undefined && fiberG >= 0 ? fiberG : fiberTarget(targets.kcal as number),
+    },
     targetsOverridden: p.targetsOverridden === true,
     onboardedAt: finiteNum(p.onboardedAt) ?? Date.now(),
   };

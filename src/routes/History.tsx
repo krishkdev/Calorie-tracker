@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import CaloriesChart from '../components/charts/CaloriesChart';
+import NutrientChart from '../components/charts/NutrientChart';
+import { METRICS, type Metric } from '../components/charts/metrics';
+import NutrientSummary from '../components/NutrientSummary';
 import WeightChart from '../components/charts/WeightChart';
 import {
   useDailyCalories,
@@ -12,6 +14,7 @@ import {
 import { deleteWeight, updateProfile, upsertWeight } from '../db/repo';
 import { formatDayKey, lastNDayKeys, safeDayKey, todayKey } from '../lib/dates';
 import { computeTargets } from '../nutrition/tdee';
+import { fiberOf, ZERO_MACROS } from '../nutrition/totals';
 import { displayWeight, formatWeight, parseWeightInput, weightUnitLabel } from '../nutrition/units';
 
 type Range = 7 | 30 | 90;
@@ -21,10 +24,14 @@ export default function History() {
   const settings = useSettings();
   const profile = useProfile();
   const [range, setRange] = useState<Range>(30);
+  const [metric, setMetric] = useState<Metric>('kcal');
   const days = useDailyCalories(range) ?? [];
   const weights = useWeights(range, TREND_WINDOW - 1) ?? [];
   const latest = useLatestWeight();
   const unit = weightUnitLabel(settings.units);
+  const targets = profile?.targets ?? ZERO_MACROS;
+  const metricTarget =
+    metric === 'kcal' ? targets.kcal : metric === 'protein' ? targets.proteinG : fiberOf(targets);
 
   const [weightInput, setWeightInput] = useState('');
   const today = useToday();
@@ -83,11 +90,38 @@ export default function History() {
         </div>
       </div>
 
-      <section className="card" aria-labelledby="calories-heading">
-        <h2 id="calories-heading" className="mb-2 font-semibold">
-          Calories
+      <section className="card" aria-labelledby="nutrient-heading">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h2 id="nutrient-heading" className="font-semibold">
+            {METRICS[metric].label}
+          </h2>
+          <div
+            className="flex gap-1 rounded-xl bg-gray-200 p-1 dark:bg-gray-800"
+            role="radiogroup"
+            aria-label="Nutrient"
+          >
+            {(Object.keys(METRICS) as Metric[]).map((m) => (
+              <button
+                key={m}
+                type="button"
+                role="radio"
+                aria-checked={metric === m}
+                className={`rounded-lg px-2.5 py-1 text-xs font-medium ${metric === m ? 'bg-white shadow dark:bg-gray-900' : 'text-gray-600 dark:text-gray-300'}`}
+                onClick={() => setMetric(m)}
+              >
+                {METRICS[m].label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <NutrientChart days={days} target={metricTarget} metric={metric} />
+      </section>
+
+      <section className="card space-y-2" aria-labelledby="summary-heading">
+        <h2 id="summary-heading" className="font-semibold">
+          Against your targets
         </h2>
-        <CaloriesChart days={days} target={profile?.targets.kcal ?? 0} />
+        <NutrientSummary days={days} target={targets} />
       </section>
 
       <section className="card space-y-3" aria-labelledby="weight-heading">

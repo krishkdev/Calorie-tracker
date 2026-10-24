@@ -43,10 +43,18 @@ describe('parseAnalysis', () => {
         protein_g: 4.3,
         carbs_g: 45,
         fat_g: 0.4,
+        fiber_g: 0,
         confidence: 0.85,
       },
     ]);
     expect(r.notes).toBe('ok');
+  });
+
+  it('reads fibre under its common spellings and defaults it to 0', () => {
+    const r = parseAnalysis(
+      '{"items":[{"name":"Oats","calories":150,"fiber_g":4},{"name":"Beans","calories":120,"fibre":"7.5 g"},{"name":"Egg","calories":78}]}',
+    );
+    expect(r.items.map((i) => i.fiber_g)).toEqual([4, 7.5, 0]);
   });
 
   it('accepts a bare array or a single item object', () => {

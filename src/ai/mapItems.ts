@@ -11,6 +11,7 @@ export function itemsFromAnalysis(result: AnalysisResult): Partial<FoodItem>[] {
     proteinG: i.protein_g,
     carbsG: i.carbs_g,
     fatG: i.fat_g,
+    fiberG: i.fiber_g,
     confidence: i.confidence,
     source: 'ai' as const,
   }));

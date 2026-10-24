@@ -16,6 +16,8 @@ export type IconName =
   | 'protein'
   | 'carbs'
   | 'fat'
+  | 'fiber'
+  | 'spark'
   | 'sun'
   | 'moon'
   | 'bowl'
@@ -81,6 +83,14 @@ const paths: Record<IconName, React.ReactNode> = {
     </>
   ),
   fat: <path d="M12 3c0 0-7 8-7 12a7 7 0 0 0 14 0c0-4-7-12-7-12ZM9 16a3 3 0 0 0 3 3" />,
+  fiber: (
+    <>
+      <path d="M12 21V9M12 9c-4 0-7-3-7-6 4 0 7 2 7 6ZM12 9c4 0 7-3 7-6-4 0-7 2-7 6ZM12 15c-4 0-6-2-7-5 4 0 6 1 7 5ZM12 15c4 0 6-2 7-5-4 0-6 1-7 5Z" />
+    </>
+  ),
+  spark: (
+    <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.2 2.2M16.2 16.2l2.2 2.2M5.6 18.4l2.2-2.2M16.2 7.8l2.2-2.2" />
+  ),
   sun: (
     <>
       <circle cx="12" cy="12" r="4" />

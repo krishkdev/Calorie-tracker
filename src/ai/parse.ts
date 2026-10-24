@@ -141,6 +141,9 @@ export function normalizeResult(data: unknown, raw: string): AnalysisResult {
     const protein = num(pick(it, 'protein_g', 'protein', 'proteins')) ?? 0;
     const carbs = num(pick(it, 'carbs_g', 'carbs', 'carbohydrates_g', 'carbohydrates')) ?? 0;
     const fat = num(pick(it, 'fat_g', 'fat', 'fats')) ?? 0;
+    const fiber =
+      num(pick(it, 'fiber_g', 'fibre_g', 'fiber', 'fibre', 'dietary_fiber', 'dietary_fiber_g')) ??
+      0;
     let confidence = num(pick(it, 'confidence')) ?? 0.5;
     // "85" means 85%, "7" means 7 out of 10; anything else is a 0-1 fraction.
     if (confidence > 10) confidence = confidence / 100;
@@ -152,6 +155,7 @@ export function normalizeResult(data: unknown, raw: string): AnalysisResult {
       protein_g: Math.max(0, round1(protein)),
       carbs_g: Math.max(0, round1(carbs)),
       fat_g: Math.max(0, round1(fat)),
+      fiber_g: Math.max(0, round1(fiber)),
       confidence: Math.min(1, Math.max(0, confidence)),
     });
   }

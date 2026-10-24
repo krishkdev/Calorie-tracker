@@ -35,6 +35,7 @@ export function buildItem(
     proteinG: round1(m.proteinG),
     carbsG: round1(m.carbsG),
     fatG: round1(m.fatG),
+    fiberG: round1(m.fiberG ?? 0),
     source: 'barcode',
     barcode: product.barcode,
   };

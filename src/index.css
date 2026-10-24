@@ -10,6 +10,7 @@
   --color-protein: #d67d80;
   --color-carbs: #c99657;
   --color-fat: #769bc8;
+  --color-fiber: #7fae7a;
 }
 
 :root {
@@ -439,7 +440,7 @@ h3 {
 }
 .macro-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin-top: 12px;
 }
@@ -455,6 +456,92 @@ h3 {
 }
 .macro-fat {
   --macro: var(--color-fat);
+}
+.macro-fiber {
+  --macro: var(--color-fiber);
+}
+.insights-card {
+  margin-top: 12px;
+}
+.insight-nudge {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--soft);
+  font-size: 14px;
+  line-height: 1.4;
+  font-weight: 500;
+}
+.insight-nudge svg {
+  flex: none;
+  margin-top: 2px;
+}
+.insight-nudge.tone-warn {
+  background: color-mix(in srgb, var(--color-protein) 14%, var(--surface));
+}
+.insight-nudge.tone-good {
+  background: color-mix(in srgb, var(--color-fiber) 16%, var(--surface));
+}
+.insight-list {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+.insight-list li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.insight-list li svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--muted);
+}
+.insight-list li.tone-good svg {
+  color: var(--color-fiber);
+}
+.insight-list li.tone-warn svg {
+  color: var(--color-protein);
+}
+.summary-table {
+  width: 100%;
+  font-size: 13px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.summary-table th,
+.summary-table td {
+  text-align: left;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.summary-table thead th {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.summary-table tbody th {
+  font-weight: 500;
+}
+.summary-table tbody tr:last-child th,
+.summary-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.diff-over {
+  color: var(--color-protein);
+  font-size: 11px;
+}
+.diff-under {
+  color: var(--muted);
+  font-size: 11px;
 }
 .macro-icon {
   color: var(--macro);

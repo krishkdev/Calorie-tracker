@@ -80,7 +80,7 @@ describe('computeTargets', () => {
 describe('percent conversions', () => {
   it('round-trips roughly', () => {
     const m = macrosFromPercents(2000, { protein: 30, carbs: 45, fat: 25 });
-    expect(m).toEqual({ kcal: 2000, proteinG: 150, carbsG: 225, fatG: 56 });
+    expect(m).toEqual({ kcal: 2000, proteinG: 150, carbsG: 225, fatG: 56, fiberG: 28 });
     const p = percentsFromMacros(m);
     expect(p.protein).toBe(30);
     expect(p.carbs + p.protein + p.fat).toBe(100);
