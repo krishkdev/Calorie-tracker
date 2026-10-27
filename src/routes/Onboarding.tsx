@@ -1,6 +1,6 @@
 import Icon from '../components/Icon';
 import NumberInput from '../components/NumberInput';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../db/hooks';
 import { saveProfile, updateSettings } from '../db/repo';
@@ -12,6 +12,7 @@ import {
   isPlausibleBody,
 } from '../nutrition/tdee';
 import { cmToFtIn, ftInToCm, lbToKg, kgToLb } from '../nutrition/units';
+import { hideSplash } from '../lib/splash';
 
 const RATES: { value: number; label: string }[] = [
   { value: 0.25, label: 'Slow · 0.25 kg / 0.5 lb a week' },
@@ -23,6 +24,7 @@ const RATES: { value: number; label: string }[] = [
 export default function Onboarding() {
   const navigate = useNavigate();
   const settings = useSettings();
+  useEffect(hideSplash, []); // reachable directly by URL, outside RequireProfile
   const [step, setStep] = useState(0);
   const [units, setUnits] = useState<Units>(settings.units);
   const [sex, setSex] = useState<Sex>('male');

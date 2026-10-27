@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 
 const CHECK_EVERY_MS = 60 * 60 * 1000;
@@ -10,6 +11,7 @@ const CHECK_EVERY_MS = 60 * 60 * 1000;
 export default function UpdatePrompt() {
   const {
     needRefresh: [needRefresh, setNeedRefresh],
+    offlineReady: [offlineReady, setOfflineReady],
     updateServiceWorker,
   } = useRegisterSW({
     immediate: true,
@@ -25,7 +27,24 @@ export default function UpdatePrompt() {
     },
   });
 
-  if (!needRefresh) return null;
+  // First install only: a short "works offline now" note that goes away by itself.
+  useEffect(() => {
+    if (!offlineReady) return;
+    const t = setTimeout(() => setOfflineReady(false), 5000);
+    return () => clearTimeout(t);
+  }, [offlineReady, setOfflineReady]);
+
+  if (!needRefresh) {
+    if (!offlineReady) return null;
+    return (
+      <div className="update-toast" role="status">
+        <span>Ready to work offline.</span>
+        <button type="button" className="update-later" onClick={() => setOfflineReady(false)}>
+          OK
+        </button>
+      </div>
+    );
+  }
   return (
     <div className="update-toast" role="status">
       <span>A new version is ready.</span>
