@@ -13,7 +13,8 @@ You bring your own AI key. Your data stays on your device.
 - **Bring your own AI.** Use your own Google Gemini key (free tier available) or OpenAI key. Both read photos. Nothing is billed through the app.
 - **Goals that make sense.** A short onboarding computes your daily calorie and macro targets (Mifflin-St Jeor), which you can adjust any time.
 - **Private by design.** Food logs, weight and goals live in your browser's local database. There is no server and no account. Export a JSON backup whenever you like.
-- **Installable.** It is a Progressive Web App: add it to your phone's home screen and it works like a native app, including offline.
+- **Installable.** It is a Progressive Web App: add it to your phone's home screen and it works like a native app, including offline, with a splash screen while it loads.
+- **Reminders.** Optional nudges at breakfast, lunch and dinner time so you remember to log. They are created on your device (there is no server), so they arrive while the app is open or installed and running in the background. See [Reminders](#reminders).
 - **Open source forever.** AGPL-3.0.
 
 ## Try it
@@ -36,6 +37,18 @@ Then open the printed URL. To use it on your phone, run `npm run dev -- --host` 
 3. Paste your key, tap **Test connection** (it checks the key and that the model exists), then **Save**.
 
 Details and troubleshooting: [docs/PROVIDERS.md](docs/PROVIDERS.md).
+
+## Reminders
+
+Turn them on in **Settings → Reminders**, pick a time per meal, and allow notifications when asked. A reminder is skipped when that meal is already logged.
+
+There is no server behind the app, so reminders are scheduled by the app itself and fire while it is open, or installed and alive in the background. They cannot be delivered when the app has been fully closed. Tips for the most reliable experience:
+
+- **Android (Chrome):** install the app (menu → Add to Home screen). Notifications then arrive in the background and tapping one opens the Log screen.
+- **iPhone / iPad:** add the app to the Home Screen (Share → Add to Home Screen); Safari only allows notifications for installed web apps.
+- **Desktop:** keep the tab or installed app open.
+
+If notifications are blocked or unsupported, reminders still appear inside the app while it is on screen.
 
 ## Commands
 

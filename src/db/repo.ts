@@ -15,6 +15,7 @@ import type {
 import { newId } from '../lib/id';
 import { isMealType } from '../lib/meals';
 import { entryTotals } from '../nutrition/totals';
+import { sanitizeReminders } from '../lib/reminders';
 
 // ---------- Profile ----------
 
@@ -58,6 +59,7 @@ export function mergeSettings(s: Partial<Settings>): Settings {
     theme: s.theme === 'light' || s.theme === 'dark' ? s.theme : 'system',
     provider: sanitizeProvider(s.provider),
     mealCutoffs: cutoffs,
+    reminders: sanitizeReminders(s.reminders),
   };
 }
 

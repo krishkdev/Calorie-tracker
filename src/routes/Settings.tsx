@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import DataSection from '../components/DataSection';
 import NumberInput from '../components/NumberInput';
 import ProviderForm from '../components/ProviderForm';
+import RemindersSection from '../components/RemindersSection';
 import { useProfile, useSettings } from '../db/hooks';
 import { clearAllData, updateProfile, updateSettings } from '../db/repo';
 import type { Activity, GoalType, Macros, Profile, Sex, ThemeSetting, Units } from '../db/types';
@@ -89,6 +90,10 @@ export default function Settings() {
       </Section>
 
       {profile && <GoalsSection units={settings.units} />}
+
+      <Section title="Reminders">
+        <RemindersSection />
+      </Section>
 
       <Section title="Your data">
         <DataSection />

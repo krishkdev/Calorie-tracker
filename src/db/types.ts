@@ -100,12 +100,24 @@ export interface ProviderConfig {
   proxyUrl?: string;
 }
 
+export type ReminderMeal = 'breakfast' | 'lunch' | 'dinner';
+
+export interface ReminderSettings {
+  /** Master switch. Turning it on asks for notification permission. */
+  enabled: boolean;
+  /** Local 'HH:MM' per meal, or '' for no reminder for that meal. */
+  times: Record<ReminderMeal, string>;
+  /** Stay quiet when that meal is already logged for the day. */
+  skipIfLogged: boolean;
+}
+
 export interface Settings {
   id: 'app';
   provider: ProviderConfig;
   units: Units;
   theme: ThemeSetting;
   mealCutoffs: { breakfast: number; lunch: number; dinner: number };
+  reminders: ReminderSettings;
 }
 
 export interface CachedProduct {

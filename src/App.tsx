@@ -2,9 +2,11 @@ import { HashRouter, Link, Navigate, Outlet, Route, Routes } from 'react-router-
 import TabBar from './components/TabBar';
 import ErrorBoundary from './components/ErrorBoundary';
 import UpdatePrompt from './components/UpdatePrompt';
+import ReminderBanner from './components/ReminderBanner';
 import Icon from './components/Icon';
 import { useProfile, useSettingsLoaded } from './db/hooks';
 import { applyTheme } from './lib/theme';
+import { hideSplash } from './lib/splash';
 import Home from './routes/Home';
 import Log from './routes/Log';
 import { lazy, Suspense, useEffect } from 'react';
@@ -43,6 +45,7 @@ function Shell() {
         <Outlet />
       </main>
       <TabBar />
+      <ReminderBanner />
     </div>
   );
 }
@@ -50,6 +53,10 @@ function Shell() {
 /** Sends new users through onboarding before anything else. */
 function RequireProfile() {
   const profile = useProfile();
+  // The first answer from the database is the moment the app knows what to draw.
+  useEffect(() => {
+    if (profile !== undefined) hideSplash();
+  }, [profile]);
   if (profile === undefined) return null; // loading
   if (profile === null) return <Navigate to="/onboarding" replace />;
   return <Outlet />;

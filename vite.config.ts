@@ -21,14 +21,25 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'prompt',
+      // A hand-written worker (src/sw.ts) so reminder notifications can open
+      // the app when tapped. Precaching is injected into it at build time.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+      },
       includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
       manifest: {
+        id: './',
         name: 'Calorie Tracker',
         short_name: 'Calories',
+        lang: 'en',
+        categories: ['health', 'food', 'lifestyle'],
         description:
           'Free, open-source calorie tracker. Bring your own AI API key. Logs stay on your device. AI runs with your chosen provider.',
-        theme_color: '#1c1c1b',
-        background_color: '#ffffff',
+        theme_color: '#ffffff',
+        background_color: '#f7f7f5',
         display: 'standalone',
         orientation: 'portrait',
         start_url: './',
@@ -43,21 +54,19 @@ export default defineConfig({
             purpose: 'maskable',
           },
         ],
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
-        // Never try to serve API calls from the app-shell cache.
-        navigateFallbackDenylist: [/^\/api\//],
-        runtimeCaching: [
+        // Long-press / right-click on the installed icon.
+        shortcuts: [
           {
-            // Open Food Facts product lookups: network first, short cache so
-            // repeated scans work offline for a while.
-            urlPattern: /^https:\/\/world\.openfoodfacts\.org\/api\//,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'off-products',
-              expiration: { maxEntries: 200, maxAgeSeconds: 7 * 24 * 60 * 60 },
-            },
+            name: 'Log food',
+            short_name: 'Log',
+            url: './#/log',
+            icons: [{ src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
+          },
+          {
+            name: 'Scan a barcode',
+            short_name: 'Scan',
+            url: './#/log/barcode',
+            icons: [{ src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
           },
         ],
       },

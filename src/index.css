@@ -1032,3 +1032,46 @@ h3 {
   background: var(--surface);
   box-shadow: 0 1px 4px #0000000a;
 }
+
+/* ---------- Reminders ---------- */
+.reminder-toast {
+  z-index: 31;
+}
+.reminder-toast > span:not(.reminder-icon) {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.reminder-toast small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.reminder-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: var(--soft);
+}
+.reminder-times {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.reminder-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.reminder-time {
+  width: auto;
+  flex: none;
+  padding: 8px 12px;
+  font-variant-numeric: tabular-nums;
+}
+.reminder-time:disabled {
+  opacity: 0.45;
+}

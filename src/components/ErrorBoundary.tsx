@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { hideSplash } from '../lib/splash';
 
 interface State {
   error: Error | null;
@@ -18,6 +19,7 @@ export default class ErrorBoundary extends Component<{ children: ReactNode }, St
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error('Unhandled render error', error, info.componentStack);
+    hideSplash(); // the recovery card must be visible, not hidden behind the splash
   }
 
   render(): ReactNode {
