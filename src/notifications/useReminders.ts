@@ -77,7 +77,12 @@ export function useReminders(): { banner: ReminderSlot | null; dismiss: () => vo
       const last = toFire.at(-1);
       if (last) {
         if (document.visibilityState === 'visible') setShown(last);
-        else void showReminderNotification(last);
+        else {
+          // Blocked or unsupported notifications: keep it for when the app returns.
+          void showReminderNotification(last).then((ok) => {
+            if (!ok) setShown(last);
+          });
+        }
       }
 
       const next = nextReminder(reminders, now, logged);
@@ -100,10 +105,11 @@ export function useReminders(): { banner: ReminderSlot | null; dismiss: () => vo
     };
   }, [reminders, loggedKey, today]);
 
-  // A logged meal makes its own banner moot.
-  const banner =
-    shown && !loggedKey?.split(',').includes(shown.meal) && shown.key.startsWith(today)
-      ? shown
-      : null;
+  // A logged meal makes its own banner moot (when the user wants that), and so does a new day.
+  const stale =
+    !shown ||
+    !shown.key.startsWith(today) ||
+    (reminders.skipIfLogged && !!loggedKey?.split(',').includes(shown.meal));
+  const banner = stale ? null : shown;
   return { banner, dismiss: () => setShown(null) };
 }

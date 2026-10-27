@@ -15,13 +15,20 @@ async function advance(ms: number) {
   });
 }
 
-async function setLunchReminderAt(hhmm: string) {
+async function setLunchReminderAt(hhmm: string, skipIfLogged = true) {
   await updateSettings({
     reminders: {
       enabled: true,
-      skipIfLogged: true,
+      skipIfLogged,
       times: { breakfast: '', lunch: hhmm, dinner: '' },
     },
+  });
+}
+
+function setHidden(hidden: boolean) {
+  Object.defineProperty(document, 'visibilityState', {
+    configurable: true,
+    get: () => (hidden ? 'hidden' : 'visible'),
   });
 }
 
@@ -35,6 +42,8 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
+  setHidden(false);
 });
 
 describe('ReminderBanner', () => {
@@ -66,6 +75,41 @@ describe('ReminderBanner', () => {
     );
     await advance(3 * 60 * 1000);
     expect(screen.queryByText('Log your lunch')).toBeNull();
+  });
+
+  it('still reminds when skipIfLogged is off and the meal is logged', async () => {
+    await setLunchReminderAt('13:00', false);
+    await addEntry({ dayKey: '2026-10-27', loggedAt: Date.now(), meal: 'lunch', items: [] });
+    render(
+      <MemoryRouter>
+        <ReminderBanner />
+      </MemoryRouter>,
+    );
+    await advance(3 * 60 * 1000);
+    expect(await screen.findByText('Log your lunch')).toBeInTheDocument();
+  });
+
+  it('keeps the reminder for the app when a system notification cannot be shown', async () => {
+    await setLunchReminderAt('13:00');
+    vi.stubGlobal(
+      'Notification',
+      Object.assign(vi.fn(), { permission: 'denied', requestPermission: vi.fn() }),
+    );
+    render(
+      <MemoryRouter>
+        <ReminderBanner />
+      </MemoryRouter>,
+    );
+    await advance(50);
+    setHidden(true);
+    await advance(3 * 60 * 1000);
+    // Coming back to the app shows the banner that could not go out as a notification.
+    setHidden(false);
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(await screen.findByText('Log your lunch')).toBeInTheDocument();
   });
 
   it('does not fire the same slot twice after a remount', async () => {
