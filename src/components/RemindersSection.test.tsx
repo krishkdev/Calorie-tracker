@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import RemindersSection from './RemindersSection';
@@ -46,7 +46,8 @@ describe('RemindersSection', () => {
     render(<RemindersSection />);
     await userEvent.click(screen.getByRole('checkbox', { name: 'Remind me to log food' }));
     await userEvent.click(await screen.findByRole('checkbox', { name: 'Breakfast' }));
+    // The field follows the live query, which lands a tick after the write.
+    await waitFor(() => expect(screen.getByLabelText('Breakfast reminder time')).toBeDisabled());
     expect((await getSettings()).reminders.times.breakfast).toBe('');
-    expect(screen.getByLabelText('Breakfast reminder time')).toBeDisabled();
   });
 });
